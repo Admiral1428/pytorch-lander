@@ -11,6 +11,7 @@ COLORS["black"] = (0, 0, 0)
 COLORS["white"] = (255, 255, 255)
 COLORS["ltgray"] = (212, 212, 212)
 COLORS["brown"] = (150, 75, 0)
+COLORS["orange"] = (255, 165, 0)
 
 # FPS cap
 FPS = 60
@@ -46,8 +47,8 @@ TITLE_DIR = "../assets/title.png"
 
 # Instruction text
 GAME_TEXT = [
-    "AI Active: ",
-    "Fuel (lb): ",
+    "Control: ",
+    "Fuel (%): ",
     "",
     "**********************",
     "",
@@ -59,12 +60,34 @@ GAME_TEXT = [
     "",
     "F1 = Toggle AI",
     "F5 = New Level",
-    "Pause = Pause game",
+    "Pause = Pause Game",
     "Escape = Reset Level",
 ]
 
 GAME_TEXT_LOC = (615, 50, 25)
 
+MODE_TEXT_LOC = (685, 50)
+FUEL_TEXT_LOC = (695, 75)
+
 PAUSE_TEXT = "Game Paused. Press Pause Key to Resume."
 
 PAUSE_TEXT_LOC = (150, 50)
+
+# Gravitational acceleration constant, meters/second**2
+GRAV_M_S2 = 9.81
+
+# Standard rocket properties (facing right, angle 0 degrees)
+MASS_EMPTY_KG = 1.0
+MASS_FUEL_KG = 0.5
+THRUST_N = 50
+TORQUE_NM = 40
+TORQUE_DAMP_NM = 25
+ROCKET_RENDER_HEIGHT = 20
+ROCKET_RENDER_WIDTH = 30
+ROCKET_GEOM_HEIGHT = 2
+ROCKET_GEOM_WIDTH = 3
+ROCKET_START_HEIGHT_FACTOR = 0.95
+BURN_RATES_KG_S = [0.01, 0.005]
+
+# Game modes
+MODES = ["Player", "AI"]

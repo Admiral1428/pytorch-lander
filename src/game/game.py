@@ -2,15 +2,17 @@ import pygame
 from game import constants as cfg
 from game.flags import GameFlags
 from game.level import Level
+from game.rocket import Rocket
 
 
 class Game:
-    def __init__(self, mode):
-        self.mode = mode
+    def __init__(self, mode_index=0):
+        self.mode_index = mode_index
         self.flags = GameFlags()
         self.fonts = {}
         self.window_surface = None
         self.render_surface = None
+        self.terrain_mask = None
 
         # Init pygame, fonts, and window
         self.init_pygame()
@@ -38,17 +40,26 @@ class Game:
     def set_window_surface(self, new_surface):
         self.window_surface = new_surface
 
-    def update_renderer(self, level: Level):
+    def update_renderer(self, level: Level, player: Rocket):
         # Fill background with white color
         self.render_surface.fill(cfg.COLORS["white"])
 
         # Draw instruction text
         self.draw_instructions()
 
+        # Draw game mode
+        self.draw_mode()
+
+        # Draw fuel info
+        self.draw_fuel(player)
+
         # Draw terrain and pad
         self.draw_sky(level)
         self.draw_terrain(level)
         self.draw_landing_pad(level)
+
+        # Draw player
+        self.draw_player(player)
 
         # Update screen
         self.update_screen()
@@ -74,6 +85,35 @@ class Game:
         # Blit the scaled surface onto the actual window display surface, and update display
         self.window_surface.blit(scaled_render_surface, (0, 0))
         pygame.display.update()
+
+    def draw_mode(self):
+        cur_mode = cfg.MODES[self.mode_index]
+
+        if cur_mode == "Player":
+            text_color = cfg.COLORS["blue"]
+        else:
+            text_color = cfg.COLORS["red"]
+
+        text_surface = self.fonts["normal"].render(cur_mode, True, text_color)
+
+        locs = cfg.MODE_TEXT_LOC
+        self.render_surface.blit(text_surface, (locs[0], locs[1]))
+
+    def draw_fuel(self, player: Rocket):
+        fuel_kg = player.get_fuel()
+        fuel_pct = round(100 * fuel_kg / cfg.MASS_FUEL_KG, 1)
+
+        if fuel_pct > 50:
+            text_color = cfg.COLORS["dkgreen"]
+        elif fuel_pct > 25:
+            text_color = cfg.COLORS["orange"]
+        else:
+            text_color = cfg.COLORS["red"]
+
+        text_surface = self.fonts["normal"].render(str(fuel_pct), True, text_color)
+
+        locs = cfg.FUEL_TEXT_LOC
+        self.render_surface.blit(text_surface, (locs[0], locs[1]))
 
     def draw_instructions(self):
         for row, text_line in enumerate(cfg.GAME_TEXT):
@@ -137,3 +177,15 @@ class Game:
         pad_rect = pygame.Rect(left_pad_x, pad_top_y_coord, pad_width, 5)
 
         pygame.draw.rect(self.render_surface, level.get_pad_color(), pad_rect)
+
+    def draw_player(self, player: Rocket):
+        # Draw rectangle representing player
+        self.render_surface.blit(player.get_rot_image(), player.get_rect())
+
+    def get_terrain_mask(self):
+        return self.terrain_mask
+
+    def cycle_mode(self):
+        self.mode_index += 1
+        if self.mode_index == len(cfg.MODES):
+            self.mode_index = 0

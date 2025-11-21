@@ -18,7 +18,10 @@ class GameFlags:
 
 
 @dataclass
-class LanderFlags:
+class RocketFlags:
     hit_boundary: bool = False
     hit_terrain: bool = False
     landed: bool = False
+    thrust: bool = False
+    left_torque: bool = False
+    right_torque: bool = False
