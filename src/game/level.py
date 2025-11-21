@@ -15,6 +15,9 @@ class Level:
         self.pad_color = cfg.COLORS["white"]
         self.ground_color = self.init_ground_color()
 
+        # Set initial location of player within level
+        self.rocket_loc = self.init_rocket_location()
+
         # Set width and position of landing pad
         self.pad_width = int(self.width * cfg.PAD_WIDTH_RATIO)
         self.pad_loc = self.init_pad_location()
@@ -39,6 +42,20 @@ class Level:
                 cfg.COLORS["brown"],
             ]
         )
+
+    def init_rocket_location(self):
+        # left-most and right-most locations (at least a full width from edge)
+        rocket_width = cfg.ROCKET_RENDER_WIDTH
+        min_center_x = int(0 + rocket_width)
+        max_center_x = int(self.width - rocket_width)
+
+        # x location
+        xloc = self.rng.randint(min_center_x, max_center_x)
+
+        # y location at specified height
+        yloc = int(self.height - self.height * cfg.ROCKET_START_HEIGHT_FACTOR)
+
+        return [xloc, yloc]
 
     def init_pad_location(self):
 
@@ -120,3 +137,6 @@ class Level:
 
     def get_width(self):
         return self.width
+
+    def get_rocket_start_loc(self):
+        return self.rocket_loc.copy()
