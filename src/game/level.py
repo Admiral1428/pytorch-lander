@@ -21,6 +21,8 @@ class Level:
         # Set width and position of landing pad
         self.pad_width = int(self.width * cfg.PAD_WIDTH_RATIO)
         self.pad_loc = self.init_pad_location()
+        self.pad_left = self.pad_loc[0] - self.pad_width / 2
+        self.pad_right = self.pad_loc[0] + self.pad_width / 2
 
         # Generate terrain
         self.terrain = self.init_terrain()
@@ -37,9 +39,10 @@ class Level:
     def init_ground_color(self):
         return self.rng.choice(
             [
-                cfg.COLORS["dkgreen"],
-                cfg.COLORS["gray"],
+                cfg.COLORS["dk_green"],
+                cfg.COLORS["dk_gray"],
                 cfg.COLORS["brown"],
+                cfg.COLORS["dk_cyan"],
             ]
         )
 
@@ -127,7 +130,7 @@ class Level:
         return self.ground_color
 
     def get_pad_data(self):
-        return [self.pad_loc, self.pad_width]
+        return [self.pad_loc, self.pad_width, self.pad_left, self.pad_right]
 
     def get_terrain(self):
         return self.terrain

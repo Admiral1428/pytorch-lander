@@ -1,17 +1,20 @@
 # Define colors
 COLORS = {}
 COLORS["green"] = (0, 255, 0)
-COLORS["dkgreen"] = (0, 102, 0)
+COLORS["dk_green"] = (0, 102, 0)
 COLORS["red"] = (255, 0, 0)
 COLORS["blue"] = (0, 0, 255)
+COLORS["dk_cyan"] = (0, 100, 100)
 COLORS["gray"] = (128, 128, 128)
+COLORS["dk_gray"] = (90, 90, 90)
 COLORS["dk_blue"] = (0, 0, 100)
 COLORS["dk_red"] = (100, 0, 0)
 COLORS["black"] = (0, 0, 0)
 COLORS["white"] = (255, 255, 255)
-COLORS["ltgray"] = (212, 212, 212)
+COLORS["lt_gray"] = (212, 212, 212)
 COLORS["brown"] = (150, 75, 0)
 COLORS["orange"] = (255, 165, 0)
+COLORS["yellow"] = (255, 255, 0)
 
 # FPS cap
 FPS = 60
@@ -70,8 +73,31 @@ MODE_TEXT_LOC = (685, 50)
 FUEL_TEXT_LOC = (695, 75)
 
 PAUSE_TEXT = "Game Paused. Press Pause Key to Resume."
-
 PAUSE_TEXT_LOC = (150, 50)
+
+LANDING_TEXT = "Rocket Landing Successful. Press Any Key to Reset."
+LANDING_TEXT_LOC = (120, 50)
+
+COLLIDE_TEXT = "Rocket Collision Detected. Press Any Key to Reset."
+COLLIDE_TEXT_LOC = (120, 50)
+
+LANDING_CRITERIA_TEXT = [
+    "----- Landing success criteria -----",
+    "Safe horizontal velocity: ",
+    "Safe vertical velocity: ",
+    "Safe landing angle: ",
+    "Within pad horizontal bounds: ",
+    "Positioned directly above pad: ",
+]
+LANDING_CRITERIA_TEXT_LOC = (120, 75, 20)
+LANDING_BOOL_TEXT_LOC = (375, 75 + 20, 20)
+
+# Brief delay before drawing status screen (following collision or landing)
+END_DELAY_TIME = 1.0
+
+# Transparent block width, height, horz position, vert position
+TRANSPARENT_BLOCK_ALPHA = 180
+TRANSPARENT_BLOCK_DIMS = (450, 175, 100, 40)
 
 # Gravitational acceleration constant, meters/second**2
 GRAV_M_S2 = 9.81
@@ -87,7 +113,13 @@ ROCKET_RENDER_WIDTH = 30
 ROCKET_GEOM_HEIGHT = 2
 ROCKET_GEOM_WIDTH = 3
 ROCKET_START_HEIGHT_FACTOR = 0.95
-BURN_RATES_KG_S = [0.01, 0.005]
+BURN_RATES_KG_S = [0.03, 0.01]
 
 # Game modes
 MODES = ["Player", "AI"]
+
+# Landing criteria
+LANDING_VELOCITY = 12.5
+LANDING_HEIGHT = 0.5
+LANDING_MIN_ANGLE = 87.0
+LANDING_MAX_ANGLE = 93.0

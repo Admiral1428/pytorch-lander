@@ -14,11 +14,21 @@ def handle_events(game: Game, player: Rocket, level: Level):
             game.set_window_surface(
                 pygame.display.set_mode(WINDOW_RESOLUTION, pygame.RESIZABLE)
             )
+            game.update_screen()
 
         elif event.type == pygame.KEYDOWN:
             if game.flags.title:
                 game.flags.title = False
                 game.flags.gameloop = True
+
+            elif (
+                event.key == pygame.K_ESCAPE
+                or game.flags.landing_drawn
+                or game.flags.collide_drawn
+            ):
+                player = Rocket(level.get_rocket_start_loc())
+                game.landing_flags.reset()
+                game.flags.reset()
 
             elif event.key == pygame.K_F1:
                 game.cycle_mode()
@@ -26,10 +36,7 @@ def handle_events(game: Game, player: Rocket, level: Level):
             elif event.key == pygame.K_F5:
                 level = Level()
                 player = Rocket(level.get_rocket_start_loc())
-                game.flags.reset()
-
-            elif event.key == pygame.K_ESCAPE:
-                player = Rocket(level.get_rocket_start_loc())
+                game.landing_flags.reset()
                 game.flags.reset()
 
             elif event.key == pygame.K_PAUSE:

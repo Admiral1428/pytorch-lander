@@ -36,6 +36,9 @@ class Rocket:
         # Thrust amount
         self.thrust = thrust
 
+        # Thrust vector
+        self.thrust_vector = [0.0, 0.0]
+
         # Applied torque amount and damping torque
         self.torque = torque
         self.torque_damping = torque_damping
@@ -64,13 +67,17 @@ class Rocket:
 
         # Rect and image representing rocket
         self.image = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
-        self.image.fill((0, 255, 0))
+        self.image.fill(cfg.COLORS["green"])
         self.rot_image = None
         self.rect = None
+
+        # Get points used to define outer boundary
+        self.points = self.calc_outer_boundary()
 
     def update_state(self, frame_dt):
         self.calc_mass(frame_dt)
         self.get_inertia()
+        self.update_color(cfg.COLORS["green"])
         self.calc_forces()
         self.calc_torques()
         self.calc_accels()
@@ -102,14 +109,15 @@ class Rocket:
 
         # thrust
         if self.flags.thrust and self.mass_fuel > 0:
-            thrust = [
+            self.thrust_vector = [
                 self.thrust * cos(radians(self.angle)),
                 self.thrust * sin(radians(self.angle)),
             ]
+            self.update_color(cfg.COLORS["red"])
         else:
-            thrust = [0.0, 0.0]
+            self.thrust_vector = [0.0, 0.0]
 
-        self.sum_forces = [thrust[0], thrust[1] - mg]
+        self.sum_forces = [self.thrust_vector[0], self.thrust_vector[1] - mg]
 
     def calc_torques(self):
         # applied torque
@@ -119,12 +127,20 @@ class Rocket:
             and self.mass_fuel > 0
         ):
             self.sum_torques = self.torque
+            if abs(self.thrust_vector[0]) > 0.0 or abs(self.thrust_vector[1]) > 0.0:
+                self.update_color(cfg.COLORS["orange"])
+            else:
+                self.update_color(cfg.COLORS["yellow"])
         elif (
             self.flags.right_torque
             and not self.flags.left_torque
             and self.mass_fuel > 0
         ):
             self.sum_torques = -self.torque
+            if abs(self.thrust_vector[0]) > 0.0 or abs(self.thrust_vector[1]) > 0.0:
+                self.update_color(cfg.COLORS["orange"])
+            else:
+                self.update_color(cfg.COLORS["yellow"])
         # introduce damping if no applied torque, and angular velocity nonzero
         elif self.omega > 1e-6:
             self.sum_torques = -self.torque_damping
@@ -168,3 +184,63 @@ class Rocket:
 
     def get_fuel(self):
         return self.mass_fuel
+
+    def get_pos(self):
+        return self.pos
+
+    def get_velocity(self):
+        return self.velocity
+
+    def get_angle(self):
+        return self.angle
+
+    def get_height(self):
+        return self.height
+
+    def get_width(self):
+        return self.width
+
+    def calc_outer_boundary(self):
+        half_width = int(self.width * 0.5)
+        half_height = int(self.height * 0.5)
+        points = []
+        # create a boundary of points around the center location 0, 0
+        for j in range(-half_height, half_height + 1):
+            # left boundary
+            points.append([-half_width, j])
+        for j in range(-half_height, half_height + 1):
+            # right boundary
+            points.append([half_width, j])
+        for i in range(-half_width + 1, half_width):
+            # top boundary
+            points.append([i, half_height])
+        for i in range(-half_width + 1, half_width):
+            # bottom boundary
+            points.append([i, -half_height])
+        return points
+
+    def calc_rotated_boundary(self):
+        # [x', y'] = [cos(angle) sin(angle)
+        #             -sin(angle) cos(angle)] * [x, y]
+
+        # perform matrix multiplication
+        rot_points = [
+            [
+                int(
+                    point[0] * cos(radians(self.angle))
+                    + point[1] * sin(radians(self.angle))
+                    + self.pos[0]
+                ),
+                int(
+                    -point[0] * sin(radians(self.angle))
+                    + point[1] * cos(radians(self.angle))
+                    + self.pos[1]
+                ),
+            ]
+            for point in self.points
+        ]
+
+        return rot_points
+
+    def update_color(self, color):
+        self.image.fill(color)
