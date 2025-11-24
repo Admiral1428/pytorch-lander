@@ -1,6 +1,7 @@
 import pygame
 from game import constants as cfg
 from game.flags import GameFlags
+from game.flags import LandingFlags
 from game.level import Level
 from game.rocket import Rocket
 
@@ -9,10 +10,10 @@ class Game:
     def __init__(self, mode_index=0):
         self.mode_index = mode_index
         self.flags = GameFlags()
+        self.landing_flags = LandingFlags()
         self.fonts = {}
         self.window_surface = None
         self.render_surface = None
-        self.terrain_mask = None
 
         # Init pygame, fonts, and window
         self.init_pygame()
@@ -104,7 +105,7 @@ class Game:
         fuel_pct = round(100 * fuel_kg / cfg.MASS_FUEL_KG, 1)
 
         if fuel_pct > 50:
-            text_color = cfg.COLORS["dkgreen"]
+            text_color = cfg.COLORS["dk_green"]
         elif fuel_pct > 25:
             text_color = cfg.COLORS["orange"]
         else:
@@ -116,18 +117,48 @@ class Game:
         self.render_surface.blit(text_surface, (locs[0], locs[1]))
 
     def draw_instructions(self):
+        locs = cfg.GAME_TEXT_LOC
         for row, text_line in enumerate(cfg.GAME_TEXT):
             text_surface = self.fonts["normal"].render(
                 text_line, True, cfg.COLORS["black"]
             )
-            locs = cfg.GAME_TEXT_LOC
             self.render_surface.blit(text_surface, (locs[0], locs[1] + row * locs[2]))
 
-    def draw_pause(self):
-        text_surface = self.fonts["normal"].render(
-            cfg.PAUSE_TEXT, True, cfg.COLORS["white"]
+    def draw_transparent_rect(self):
+        block_dims = cfg.TRANSPARENT_BLOCK_DIMS
+        transparent_surface = pygame.Surface(
+            (block_dims[0], block_dims[1]), pygame.SRCALPHA
         )
-        locs = cfg.PAUSE_TEXT_LOC
+        alpha_value = cfg.TRANSPARENT_BLOCK_ALPHA
+        transparent_surface.fill((0, 0, 0, alpha_value))
+        self.render_surface.blit(transparent_surface, (block_dims[2], block_dims[3]))
+
+    def draw_landing_criteria_text(self):
+        bools = self.landing_flags.get_flags()
+        locs = cfg.LANDING_CRITERIA_TEXT_LOC
+        for row, text_line in enumerate(cfg.LANDING_CRITERIA_TEXT):
+            text_surface = self.fonts["normal"].render(
+                text_line, True, cfg.COLORS["white"]
+            )
+            self.render_surface.blit(text_surface, (locs[0], locs[1] + row * locs[2]))
+
+        bool_locs = cfg.LANDING_BOOL_TEXT_LOC
+        for row, bool in enumerate(bools):
+            if bool:
+                text_color = cfg.COLORS["green"]
+            else:
+                text_color = cfg.COLORS["red"]
+
+            text_surface = self.fonts["normal"].render(str(bool), True, text_color)
+            self.render_surface.blit(
+                text_surface, (bool_locs[0], bool_locs[1] + row * bool_locs[2])
+            )
+
+        self.update_screen()
+
+    def draw_pause_text(self, text, text_loc, text_color):
+        text_surface = self.fonts["normal"].render(text, True, text_color)
+        locs = text_loc
         self.render_surface.blit(text_surface, (locs[0], locs[1]))
 
         # Update screen
@@ -142,30 +173,40 @@ class Game:
 
         pygame.draw.rect(self.render_surface, level.get_sky_color(), sky_rect)
 
+    def make_vertical_gradient(self, height, top_color, bottom_color):
+        # return a Surface with a vertical gradient fill
+        gradient_surface = pygame.Surface((1, height))
+        for y in range(height):
+            t = y / (height - 1)
+            r = int(top_color[0] + t * (bottom_color[0] - top_color[0]))
+            g = int(top_color[1] + t * (bottom_color[1] - top_color[1]))
+            b = int(top_color[2] + t * (bottom_color[2] - top_color[2]))
+            gradient_surface.set_at((0, y), (r, g, b))
+        return gradient_surface
+
     def draw_terrain(self, level: Level):
-        terrain_points = []
         terrain_data = level.get_terrain()
         level_height = level.get_height()
 
+        # Define gradient colors
+        bottom_color = level.get_ground_color()
+        top_color = cfg.COLORS["white"]
+
+        # Precompute one vertical gradient strip
+        gradient_strip = self.make_vertical_gradient(
+            level_height, top_color, bottom_color
+        )
+
         for x, height_from_top in enumerate(terrain_data):
             y_coord = level_height - height_from_top
-            terrain_points.append((x, y_coord))
 
-        bottom_left = (0, level_height)
-        bottom_right = (
-            level.get_width() - 1,
-            level_height,
-        )
-
-        polygon_points = [bottom_left] + terrain_points + [bottom_right]
-
-        pygame.draw.polygon(
-            self.render_surface, level.get_ground_color(), polygon_points
-        )
+            # Clip the gradient strip to start at terrain top
+            rect = pygame.Rect(0, y_coord, 1, level_height - y_coord)
+            self.render_surface.blit(gradient_strip, (x, y_coord), rect)
 
     def draw_landing_pad(self, level: Level):
         level_height = level.get_height()
-        pad_loc, pad_width = level.get_pad_data()
+        pad_loc, pad_width, _, _ = level.get_pad_data()
 
         # Define location of rectangle
         pad_x_center = pad_loc[0]
@@ -182,10 +223,84 @@ class Game:
         # Draw rectangle representing player
         self.render_surface.blit(player.get_rot_image(), player.get_rect())
 
-    def get_terrain_mask(self):
-        return self.terrain_mask
-
     def cycle_mode(self):
         self.mode_index += 1
         if self.mode_index == len(cfg.MODES):
             self.mode_index = 0
+
+    def calc_landing(self, level: Level, player: Rocket):
+        pad_loc, _, left_pad, right_pad = level.get_pad_data()
+        level_height = level.get_height()
+
+        player_pos = player.get_pos()
+        player_angle = player.get_angle()
+        player_velocity = player.get_velocity()
+        player_horz_dim = player.get_height()
+        player_vert_dim = player.get_width()
+
+        # horizontal velocity less than threshold
+        self.landing_flags.horz_velocity = (
+            abs(player_velocity[0]) < cfg.LANDING_VELOCITY
+        )
+        # vertical velocity less than threshold
+        self.landing_flags.vert_velocity = (
+            abs(player_velocity[1]) < cfg.LANDING_VELOCITY
+        )
+        # landing angle within tolerance
+        self.landing_flags.angle = (
+            cfg.LANDING_MIN_ANGLE < player_angle < cfg.LANDING_MAX_ANGLE
+        )
+        # entirety of rocket on pad horizontally
+        self.landing_flags.horz_position = left_pad < (
+            player_pos[0] - player_horz_dim / 2
+        ) and right_pad > (player_pos[0] + player_horz_dim / 2)
+        # rocket is touching pad vertically within tolerance
+        self.landing_flags.vert_position = (
+            abs(level_height - player_pos[1] - (player_vert_dim / 2) - pad_loc[1])
+            < cfg.LANDING_HEIGHT
+        )
+
+        if (
+            self.landing_flags.horz_velocity
+            and self.landing_flags.vert_velocity
+            and self.landing_flags.angle
+            and self.landing_flags.horz_position
+            and self.landing_flags.vert_position
+        ):
+            return True
+        return False
+
+    def calc_collision(self, level: Level, player: Rocket):
+        rot_points = player.calc_rotated_boundary()
+        terrain = level.get_terrain()
+
+        level_width = level.get_width()
+        level_height = level.get_height()
+
+        for point in rot_points:
+            # If boundary of rocket outside playable area, collision occured
+            if (
+                point[0] < 0
+                or point[0] > level_width
+                or point[1] < 0
+                or point[1] > level_height
+            ):
+                return True
+            # If boundary of rocket is below terrain at given x location, collision occured
+            try:
+                if terrain[point[0]] >= (level_height - point[1]):
+                    return True
+            except:
+                return True
+
+        return False
+
+    def set_landing_flags(self):
+        self.flags.landing_drawn = False
+        self.flags.landing = True
+        self.flags.gameloop = not self.flags.gameloop
+
+    def set_collide_flags(self):
+        self.flags.collide_drawn = False
+        self.flags.collide = True
+        self.flags.gameloop = not self.flags.gameloop
