@@ -42,6 +42,11 @@ while game.flags.running:
             player.stop_sounds()
             game.set_landing_flags()
             end_game_time_ms = pygame.time.get_ticks()
+        elif game.escaped_boundary(level, player):
+            player.stop_sounds()
+            game.sounds["escape"].play()
+            game.set_escape_flags()
+            end_game_time_ms = pygame.time.get_ticks()
         elif game.calc_collision(level, player):
             player.stop_sounds()
             game.sounds["explosion"].play()
@@ -65,6 +70,17 @@ while game.flags.running:
         )
         game.draw_landing_criteria_text()
         game.flags.landing_drawn = True
+        end_game_time_ms = None
+
+    elif (
+        game.flags.escape
+        and not game.flags.escape_drawn
+        and (pygame.time.get_ticks() - end_game_time_ms) / 1000.0 > cfg.END_DELAY_TIME
+    ):
+        game.draw_transparent_rect()
+        game.draw_pause_text(cfg.ESCAPE_TEXT, cfg.ESCAPE_TEXT_LOC, cfg.COLORS["red"])
+        game.draw_landing_criteria_text()
+        game.flags.escape_drawn = True
         end_game_time_ms = None
 
     elif (

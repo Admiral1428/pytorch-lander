@@ -12,6 +12,8 @@ class GameFlags:
     landing_drawn: bool = False
     collide: bool = False
     collide_drawn: bool = False
+    escape: bool = False
+    escape_drawn: bool = False
     fullscreen: bool = False
 
     def reset(self):
@@ -23,6 +25,8 @@ class GameFlags:
         self.landing_drawn: bool = False
         self.collide: bool = False
         self.collide_drawn: bool = False
+        self.escape: bool = False
+        self.escape_drawn: bool = False
 
 
 @dataclass

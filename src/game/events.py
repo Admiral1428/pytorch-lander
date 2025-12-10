@@ -24,6 +24,7 @@ def handle_events(game: Game, player: Rocket, level: Level):
             elif (
                 event.key == pygame.K_ESCAPE
                 or game.flags.landing_drawn
+                or game.flags.escape_drawn
                 or game.flags.collide_drawn
             ):
                 player = Rocket(level.get_rocket_start_loc(), game.images, game.sounds)

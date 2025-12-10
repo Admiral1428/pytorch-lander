@@ -85,6 +85,9 @@ PAUSE_TEXT_LOC = (150, 50)
 LANDING_TEXT = "Rocket Landing Successful. Press Any Key to Reset."
 LANDING_TEXT_LOC = (120, 50)
 
+ESCAPE_TEXT = "Rocket Escape Detected. Press Any Key to Reset."
+ESCAPE_TEXT_LOC = (120, 50)
+
 COLLIDE_TEXT = "Rocket Collision Detected. Press Any Key to Reset."
 COLLIDE_TEXT_LOC = (120, 50)
 
