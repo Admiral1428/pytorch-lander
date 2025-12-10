@@ -1,9 +1,9 @@
 # pytorch-lander
 A 2D Python game that simulates rocket landings, blending classic arcade gameplay with modern AI control.
 
-<img width="3186" height="1782" alt="11-24-25" src="https://github.com/user-attachments/assets/6fc168ab-0ede-496d-91d4-f0701d10f134" />
+<img width="3188" height="1794" alt="12-09-25" src="https://github.com/user-attachments/assets/88c34510-4f13-412f-a6a5-ebd71d431677" />
 
-https://github.com/user-attachments/assets/fa2a1d7a-91fc-4c8d-9989-5fa0a47f1b2d
+https://github.com/user-attachments/assets/6813e678-4339-40f4-8592-38676eb4cb30
 
 Inspired by *Lunar Lander (1979)*, the project challenges players to guide a descending rocket safely onto a landing pad across procedurally generated terrain. Beyond manual play, the simulation will support autonomous control via PyTorch, showcasing reinforcement learning and AI-driven decision-making.
 
