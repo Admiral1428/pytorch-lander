@@ -33,6 +33,13 @@ class RocketFlags:
 
 
 @dataclass
+class SoundFlags:
+    thrust: bool = False
+    left_torque: bool = False
+    right_torque: bool = False
+
+
+@dataclass
 class LandingFlags:
     horz_velocity: bool = False
     vert_velocity: bool = False

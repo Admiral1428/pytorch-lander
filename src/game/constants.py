@@ -15,6 +15,7 @@ COLORS["lt_gray"] = (212, 212, 212)
 COLORS["brown"] = (150, 75, 0)
 COLORS["orange"] = (255, 165, 0)
 COLORS["yellow"] = (255, 255, 0)
+COLORS["turquoise"] = (32, 214, 199)
 
 # FPS cap
 FPS = 60
@@ -47,6 +48,12 @@ TITLE_TEXT = "PyTorch Lander"
 
 # Title screen location
 TITLE_DIR = "../assets/title.png"
+
+# Sound effects location
+SOUNDS_DIR = "../assets/sounds/"
+
+# Images location
+IMAGES_DIR = "../assets/images/"
 
 # Instruction text
 GAME_TEXT = [
@@ -123,3 +130,7 @@ LANDING_VELOCITY = 12.5
 LANDING_HEIGHT = 0.5
 LANDING_MIN_ANGLE = 87.0
 LANDING_MAX_ANGLE = 93.0
+
+# Vertical image appearance threshold
+IMAGE_VERT_MIN_ANGLE = 89.0
+IMAGE_VERT_MAX_ANGLE = 91.0

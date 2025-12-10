@@ -7,8 +7,8 @@ from game.events import handle_events
 
 # Initialize game and level
 game = Game()
-level = Level()
-player = Rocket(level.get_rocket_start_loc())
+level = Level(game.images)
+player = Rocket(level.get_rocket_start_loc(), game.images, game.sounds)
 
 # Initialize clock
 clock = pygame.time.Clock()
@@ -39,13 +39,17 @@ while game.flags.running:
         player.update_state(delta_time_seconds)
         game.update_renderer(level, player)
         if game.calc_landing(level, player):
+            player.stop_sounds()
             game.set_landing_flags()
             end_game_time_ms = pygame.time.get_ticks()
         elif game.calc_collision(level, player):
+            player.stop_sounds()
+            game.sounds["explosion"].play()
             game.set_collide_flags()
             end_game_time_ms = pygame.time.get_ticks()
 
     elif game.flags.paused and not game.flags.pause_drawn:
+        player.stop_sounds()
         game.draw_pause_text(cfg.PAUSE_TEXT, cfg.PAUSE_TEXT_LOC, cfg.COLORS["white"])
         game.flags.pause_drawn = True
 
@@ -54,6 +58,7 @@ while game.flags.running:
         and not game.flags.landing_drawn
         and (pygame.time.get_ticks() - end_game_time_ms) / 1000.0 > cfg.END_DELAY_TIME
     ):
+        game.sounds["landing"].play()
         game.draw_transparent_rect()
         game.draw_pause_text(
             cfg.LANDING_TEXT, cfg.LANDING_TEXT_LOC, cfg.COLORS["green"]

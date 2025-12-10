@@ -1,4 +1,5 @@
 import pygame
+import os
 from game import constants as cfg
 from game.flags import GameFlags
 from game.flags import LandingFlags
@@ -14,9 +15,15 @@ class Game:
         self.fonts = {}
         self.window_surface = None
         self.render_surface = None
+        self.images = {}
+        self.sounds = {}
 
         # Init pygame, fonts, and window
         self.init_pygame()
+
+        # Load images and sounds
+        self.load_images(cfg.IMAGES_DIR)
+        self.load_sounds(cfg.SOUNDS_DIR)
 
     def init_pygame(self):
         # Initialize pygame modules
@@ -37,6 +44,29 @@ class Game:
 
         # Internal render surface
         self.render_surface = pygame.Surface((cfg.RENDER_WIDTH, cfg.RENDER_HEIGHT))
+
+    def load_sounds(self, directory_path):
+        for filename in os.listdir(directory_path):
+            if filename.lower().endswith(".wav"):
+                sound_path = os.path.join(directory_path, filename)
+                try:
+                    sound_effect = pygame.mixer.Sound(sound_path)
+                    sound_name = os.path.splitext(filename)[0]
+                    self.sounds[sound_name] = sound_effect
+                except pygame.error as e:
+                    print(f"Error loading sound: {filename}: {e}")
+
+    def load_images(self, directory_path):
+        for filename in os.listdir(directory_path):
+            if filename.lower().endswith(".png"):
+                image_path = os.path.join(directory_path, filename)
+                try:
+                    image_surface = pygame.image.load(image_path).convert()
+                    image_surface.set_colorkey(cfg.COLORS["turquoise"])
+                    image_name = os.path.splitext(filename)[0]
+                    self.images[image_name] = image_surface
+                except pygame.error as e:
+                    print(f"Error loading image: {filename}: {e}")
 
     def set_window_surface(self, new_surface):
         self.window_surface = new_surface
@@ -171,7 +201,7 @@ class Game:
         # Draw rectangle representing sky
         sky_rect = pygame.Rect(0, 0, level_width, level_height)
 
-        pygame.draw.rect(self.render_surface, level.get_sky_color(), sky_rect)
+        self.render_surface.blit(level.get_sky_image(), sky_rect)
 
     def make_vertical_gradient(self, height, top_color, bottom_color):
         # return a Surface with a vertical gradient fill
