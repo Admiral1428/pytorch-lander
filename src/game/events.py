@@ -26,7 +26,7 @@ def handle_events(game: Game, player: Rocket, level: Level):
                 or game.flags.landing_drawn
                 or game.flags.collide_drawn
             ):
-                player = Rocket(level.get_rocket_start_loc())
+                player = Rocket(level.get_rocket_start_loc(), game.images, game.sounds)
                 game.landing_flags.reset()
                 game.flags.reset()
 
@@ -34,8 +34,8 @@ def handle_events(game: Game, player: Rocket, level: Level):
                 game.cycle_mode()
 
             elif event.key == pygame.K_F5:
-                level = Level()
-                player = Rocket(level.get_rocket_start_loc())
+                level = Level(game.images)
+                player = Rocket(level.get_rocket_start_loc(), game.images, game.sounds)
                 game.landing_flags.reset()
                 game.flags.reset()
 

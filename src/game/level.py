@@ -3,15 +3,18 @@ from game import constants as cfg
 
 
 class Level:
-    def __init__(self, seed=None):
+    def __init__(self, images, seed=None):
         self.width = int(cfg.LEVEL_WIDTH)
         self.height = int(cfg.LEVEL_HEIGHT)
 
         # Local RNG for reproducibility
         self.rng = random.Random(seed)
 
+        # Set sky image
+        self.images = images
+        self.sky_image = self.init_sky_image()
+
         # Set colors
-        self.sky_color = self.init_sky_color()
         self.pad_color = cfg.COLORS["white"]
         self.ground_color = self.init_ground_color()
 
@@ -27,12 +30,12 @@ class Level:
         # Generate terrain
         self.terrain = self.init_terrain()
 
-    def init_sky_color(self):
+    def init_sky_image(self):
         return self.rng.choice(
             [
-                cfg.COLORS["black"],
-                cfg.COLORS["dk_blue"],
-                cfg.COLORS["dk_red"],
+                self.images["sky_black"],
+                self.images["sky_blue"],
+                self.images["sky_red"],
             ]
         )
 
@@ -120,8 +123,8 @@ class Level:
 
         return heights
 
-    def get_sky_color(self):
-        return self.sky_color
+    def get_sky_image(self):
+        return self.sky_image
 
     def get_pad_color(self):
         return self.pad_color
