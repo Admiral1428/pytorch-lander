@@ -45,6 +45,11 @@ class Game:
         # Internal render surface
         self.render_surface = pygame.Surface((cfg.RENDER_WIDTH, cfg.RENDER_HEIGHT))
 
+        # White region for drawing instructions
+        self.right_rect = pygame.Rect(
+            cfg.LEVEL_WIDTH, 0, cfg.RENDER_WIDTH - cfg.LEVEL_WIDTH, cfg.RENDER_HEIGHT
+        )
+
     def load_sounds(self, directory_path):
         for filename in os.listdir(directory_path):
             if filename.lower().endswith(".wav"):
@@ -72,8 +77,16 @@ class Game:
         self.window_surface = new_surface
 
     def update_renderer(self, level: Level, player: Rocket):
-        # Fill background with white color
-        self.render_surface.fill(cfg.COLORS["white"])
+        # Draw sky, terrain, and pad
+        self.draw_sky(level)
+        self.draw_terrain(level)
+        self.draw_landing_pad(level)
+
+        # Draw player
+        self.draw_player(player)
+
+        # Fill right section of screen with white color
+        self.render_surface.fill(cfg.COLORS["white"], rect=self.right_rect)
 
         # Draw instruction text
         self.draw_instructions()
@@ -83,14 +96,6 @@ class Game:
 
         # Draw fuel info
         self.draw_fuel(player)
-
-        # Draw terrain and pad
-        self.draw_sky(level)
-        self.draw_terrain(level)
-        self.draw_landing_pad(level)
-
-        # Draw player
-        self.draw_player(player)
 
         # Update screen
         self.update_screen()
@@ -300,27 +305,38 @@ class Game:
             return True
         return False
 
-    def calc_collision(self, level: Level, player: Rocket):
+    def escaped_boundary(self, level: Level, player: Rocket):
         rot_points = player.calc_rotated_boundary()
-        terrain = level.get_terrain()
+
+        x_values = [point[0] for point in rot_points]
+        min_x = min(x_values)
+        max_x = max(x_values)
+        y_values = [point[1] for point in rot_points]
+        min_y = min(y_values)
+        max_y = max(y_values)
 
         level_width = level.get_width()
         level_height = level.get_height()
 
+        # If boundary of rocket fully outside playable area, boundary escaped
+        if max_x < 0 or min_x > level_width or max_y < 0 or min_y > level_height:
+            return True
+        return False
+
+    def calc_collision(self, level: Level, player: Rocket):
+        rot_points = player.calc_rotated_boundary()
+        terrain = level.get_terrain()
+
+        level_height = level.get_height()
+        level_width = level.get_width()
+
         for point in rot_points:
-            # If boundary of rocket outside playable area, collision occured
-            if (
-                point[0] < 0
-                or point[0] > level_width
-                or point[1] < 0
-                or point[1] > level_height
-            ):
-                return True
             # If boundary of rocket is below terrain at given x location, collision occured
-            try:
-                if terrain[point[0]] >= (level_height - point[1]):
-                    return True
-            except:
+            if (
+                point[0] >= 0
+                and point[0] < level_width
+                and terrain[point[0]] >= (level_height - point[1])
+            ):
                 return True
 
         return False
@@ -328,6 +344,11 @@ class Game:
     def set_landing_flags(self):
         self.flags.landing_drawn = False
         self.flags.landing = True
+        self.flags.gameloop = not self.flags.gameloop
+
+    def set_escape_flags(self):
+        self.flags.escape_drawn = False
+        self.flags.escape = True
         self.flags.gameloop = not self.flags.gameloop
 
     def set_collide_flags(self):
