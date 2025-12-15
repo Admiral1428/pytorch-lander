@@ -8,8 +8,8 @@ class Rocket:
     def __init__(
         self,
         position,
-        images,
-        sounds,
+        images=None,
+        sounds=None,
         width=cfg.ROCKET_RENDER_WIDTH,
         height=cfg.ROCKET_RENDER_HEIGHT,
         geom_width=cfg.ROCKET_GEOM_WIDTH,
@@ -53,7 +53,7 @@ class Rocket:
         self.burn_rates = burn_rates
 
         # Position, velocity, and acceleration in x, y
-        self.pos = position
+        self.pos = position  # center releative to top left of screen (+right, +down)
         self.velocity = [0.0, 0.0]
         self.accel = [0.0, 0.0]
 
@@ -73,7 +73,10 @@ class Rocket:
         self.sound_flags = SoundFlags()
 
         # Rect and image representing rocket
-        self.image = self.images["rocket"]
+        if self.images != None:
+            self.image = self.images["rocket"]
+        else:
+            self.image = None
         self.rot_image = None
         self.rect = None
 
@@ -83,14 +86,16 @@ class Rocket:
     def update_state(self, frame_dt):
         self.calc_mass(frame_dt)
         self.get_inertia()
-        self.update_image("rocket")
+        if self.images != None:
+            self.update_image("rocket")
         self.calc_forces()
         self.calc_torques()
         self.calc_accels()
         self.calc_velocities(frame_dt)
         self.calc_positions(frame_dt)
-        self.play_sounds()
-        self.move_rect()
+        if self.images != None:
+            self.play_sounds()
+            self.move_rect()
 
     def calc_mass(self, frame_dt):
         if self.flags.thrust:
@@ -120,7 +125,8 @@ class Rocket:
                 self.thrust * cos(radians(self.angle)),
                 self.thrust * sin(radians(self.angle)),
             ]
-            self.update_image("rocket_thrust")
+            if self.images != None:
+                self.update_image("rocket_thrust")
         else:
             self.thrust_vector = [0.0, 0.0]
 
@@ -134,20 +140,22 @@ class Rocket:
             and self.mass_fuel > 0
         ):
             self.sum_torques = self.torque
-            if abs(self.thrust_vector[0]) > 0.0 or abs(self.thrust_vector[1]) > 0.0:
-                self.update_image("rocket_thrust_left_torque")
-            else:
-                self.update_image("rocket_left_torque")
+            if self.images != None:
+                if abs(self.thrust_vector[0]) > 0.0 or abs(self.thrust_vector[1]) > 0.0:
+                    self.update_image("rocket_thrust_left_torque")
+                else:
+                    self.update_image("rocket_left_torque")
         elif (
             self.flags.right_torque
             and not self.flags.left_torque
             and self.mass_fuel > 0
         ):
             self.sum_torques = -self.torque
-            if abs(self.thrust_vector[0]) > 0.0 or abs(self.thrust_vector[1]) > 0.0:
-                self.update_image("rocket_thrust_right_torque")
-            else:
-                self.update_image("rocket_right_torque")
+            if self.images != None:
+                if abs(self.thrust_vector[0]) > 0.0 or abs(self.thrust_vector[1]) > 0.0:
+                    self.update_image("rocket_thrust_right_torque")
+                else:
+                    self.update_image("rocket_right_torque")
         # introduce damping if no applied torque, and angular velocity nonzero
         elif self.omega > 1e-6:
             self.sum_torques = -self.torque_damping
@@ -207,8 +215,17 @@ class Rocket:
     def get_velocity(self):
         return self.velocity
 
+    def get_accel(self):
+        return self.accel
+
     def get_angle(self):
         return self.angle
+
+    def get_omega(self):
+        return self.omega
+
+    def get_alpha(self):
+        return self.alpha
 
     def get_height(self):
         return self.height
@@ -303,3 +320,35 @@ class Rocket:
         self.sound_flags.thrust = False
         self.sound_flags.left_torque = False
         self.sound_flags.right_torque = False
+
+    def apply_ai_action(self, action):
+        # 0 = no thrust or torque
+        if action == 0:
+            self.flags.thrust = False
+            self.flags.left_torque = False
+            self.flags.right_torque = False
+        # 1 = thrust
+        elif action == 1:
+            self.flags.thrust = True
+            self.flags.left_torque = False
+            self.flags.right_torque = False
+        # 2 = left torque
+        elif action == 2:
+            self.flags.thrust = False
+            self.flags.left_torque = True
+            self.flags.right_torque = False
+        # 3 = right torque
+        elif action == 3:
+            self.flags.thrust = False
+            self.flags.left_torque = False
+            self.flags.right_torque = True
+        # 4 = thrust + left torque
+        elif action == 4:
+            self.flags.thrust = True
+            self.flags.left_torque = True
+            self.flags.right_torque = False
+        # 5 = thrust + right torque
+        elif action == 5:
+            self.flags.thrust = True
+            self.flags.left_torque = False
+            self.flags.right_torque = True

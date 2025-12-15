@@ -11,8 +11,12 @@ class Level:
         self.rng = random.Random(seed)
 
         # Set sky image
-        self.images = images
-        self.sky_image = self.init_sky_image()
+        if images == None:
+            self.images = None
+            self.sky_image = None
+        else:
+            self.images = images
+            self.sky_image = self.init_sky_image()
 
         # Set colors
         self.pad_color = cfg.COLORS["white"]
