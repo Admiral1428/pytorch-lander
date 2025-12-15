@@ -20,6 +20,9 @@ COLORS["turquoise"] = (32, 214, 199)
 # FPS cap
 FPS = 60
 
+# AI simulation rate cap
+MODEL_HZ = 10
+
 # Define pad width
 PAD_WIDTH_RATIO = 0.1
 
@@ -133,7 +136,20 @@ LANDING_VELOCITY = 12.5
 LANDING_HEIGHT = 0.5
 LANDING_MIN_ANGLE = 87.0
 LANDING_MAX_ANGLE = 93.0
+LANDING_MAX_TILT = 45.0
 
 # Vertical image appearance threshold
 IMAGE_VERT_MIN_ANGLE = 89.0
 IMAGE_VERT_MAX_ANGLE = 91.0
+
+# Half width of terrain for state vector
+TERRAIN_WINDOW = 60
+
+# Factors for state vector normalization
+MAX_VEL = 300
+MAX_OMEGA = 500
+
+# Capacity for replay buffer
+BUFFER_CAP = 10000
+EPISODE_CAP = 5000
+UPDATE_INTERVAL = 100

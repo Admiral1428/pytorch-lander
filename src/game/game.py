@@ -18,12 +18,13 @@ class Game:
         self.images = {}
         self.sounds = {}
 
-        # Init pygame, fonts, and window
-        self.init_pygame()
+        if self.mode_index != -1:
+            # Init pygame, fonts, and window
+            self.init_pygame()
 
-        # Load images and sounds
-        self.load_images(cfg.IMAGES_DIR)
-        self.load_sounds(cfg.SOUNDS_DIR)
+            # Load images and sounds
+            self.load_images(cfg.IMAGES_DIR)
+            self.load_sounds(cfg.SOUNDS_DIR)
 
     def init_pygame(self):
         # Initialize pygame modules
