@@ -10,13 +10,14 @@ from trainer.reward import calc_shaping_rewards
 from trainer.train import train_step
 from collections import deque
 import torch
+import random
 
 
 def train_loop(config):
 
     # Initialize game and level
     game = Game(-1)
-    level = Level(None, config["level_seed"])
+    level = Level(None, random.choice(config["level_seeds"]))
     player = Rocket(level.get_rocket_start_loc())
 
     # Simulation rate for training
@@ -26,7 +27,7 @@ def train_loop(config):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     # Initialize replay buffer
-    buffer = ReplayBuffer()
+    buffer = ReplayBuffer(config["buffer_cap"])
 
     # Action dimension (possible actions allowed in this training phase)
     action_dim_choice = config["action_dim"]
@@ -37,7 +38,7 @@ def train_loop(config):
     ).to(device)
 
     # Load previous training if applicable
-    if config["load_checkpoint"]:
+    if config["checkpoint_path"] is not None:
         model.load_state_dict(
             torch.load(config["checkpoint_path"], map_location=device)
         )
@@ -54,6 +55,16 @@ def train_loop(config):
     epsilon_decay = config["epsilon_decay"]
     gamma = config["gamma"]
 
+    # Terminal reward amounts
+    if config["reward_phase"] == "phase1":
+        landing_reward = 0
+        escape_reward = -50000
+        crash_reward = 0
+    else:
+        landing_reward = 50000
+        escape_reward = -10000
+        crash_reward = -10000
+
     # Initialize number of steps, number of episodes, and episode reward
     steps = 0  # training frequency (every physics frame)
     episodes = 0  # episode frequency (ending in collision, escape, or landing)
@@ -66,7 +77,7 @@ def train_loop(config):
     log_file = open(config["log_path"], "w")
     recent_episodes = deque(maxlen=100)
 
-    while episodes < cfg.EPISODE_CAP:
+    while episodes < config["episode_cap"]:
 
         # Get current epsilon using decay rate
         epsilon = max(
@@ -94,7 +105,9 @@ def train_loop(config):
         player.update_state(delta_time_seconds)
 
         # Calcluate minor shaping rewards
-        step_reward = calc_shaping_rewards(player, curr_y, curr_dx, curr_dy, prev_state)
+        step_reward = calc_shaping_rewards(
+            config["reward_phase"], player, curr_y, curr_dx, curr_dy, prev_state
+        )
         episode_reward += step_reward
 
         # Update previous state and set flag
@@ -103,18 +116,18 @@ def train_loop(config):
 
         # Check terminal events
         if game.calc_landing(level, player):
-            episode_reward += 5000
-            step_reward += 5000
+            episode_reward += landing_reward
+            step_reward += landing_reward
             done = True
             event_description = "successful landing"
         elif game.escaped_boundary(level, player):
-            episode_reward -= 1500
-            step_reward -= 1500
+            episode_reward += escape_reward
+            step_reward += escape_reward
             done = True
             event_description = "escaped boundary"
         elif game.calc_collision(level, player):
-            episode_reward -= 1000
-            step_reward -= 1000
+            episode_reward += crash_reward
+            step_reward += crash_reward
             done = True
             event_description = "collision detected"
 
@@ -152,9 +165,12 @@ def train_loop(config):
             player = Rocket(level.get_rocket_start_loc())
             episodes += 1
 
+            # Get another random level
+            level = Level(None, random.choice(config["level_seeds"]))
+
         # Update target network frequently enough to track online network,
         # but not too frequent to destabilize Q-learning
-        if steps % cfg.UPDATE_INTERVAL == 0:
+        if steps % config["update_interval"] == 0:
             target_model.load_state_dict(model.state_dict())
 
         # update steps and epsilon
@@ -170,4 +186,4 @@ def train_loop(config):
 
     # Save model after training
     torch.save(model.state_dict(), config["save_path"])
-    print("Model saved to {config['save_path']}")
+    print("Model saved to " + config["save_path"])

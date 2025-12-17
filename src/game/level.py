@@ -8,6 +8,7 @@ class Level:
         self.height = int(cfg.LEVEL_HEIGHT)
 
         # Local RNG for reproducibility
+        self.seed = seed
         self.rng = random.Random(seed)
 
         # Set sky image
@@ -150,3 +151,6 @@ class Level:
 
     def get_rocket_start_loc(self):
         return self.rocket_loc.copy()
+
+    def get_seed(self):
+        return self.seed
