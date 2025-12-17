@@ -98,6 +98,11 @@ class Game:
         # Draw fuel info
         self.draw_fuel(player)
 
+        # Draw level seed if not random
+        level_seed = level.get_seed()
+        if level_seed is not None:
+            self.draw_seed(level_seed)
+
         # Update screen
         self.update_screen()
 
@@ -150,6 +155,14 @@ class Game:
         text_surface = self.fonts["normal"].render(str(fuel_pct), True, text_color)
 
         locs = cfg.FUEL_TEXT_LOC
+        self.render_surface.blit(text_surface, (locs[0], locs[1]))
+
+    def draw_seed(self, level_seed):
+        text_surface = self.fonts["normal"].render(
+            "Level Seed: " + str(level_seed), True, cfg.COLORS["black"]
+        )
+
+        locs = cfg.SEED_TEXT_LOC
         self.render_surface.blit(text_surface, (locs[0], locs[1]))
 
     def draw_instructions(self):

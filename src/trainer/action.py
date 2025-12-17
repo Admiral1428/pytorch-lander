@@ -2,7 +2,7 @@ import random
 import torch
 
 
-def select_action(model, state, action_dim_choice, epsilon=0.1):
+def select_action(model, state, action_dim_choice, epsilon):
     # With probability epsilon, choose a random action (exploration)
     if random.random() < epsilon:
         # 0 = no thrust or torque

@@ -81,6 +81,7 @@ GAME_TEXT_LOC = (615, 50, 25)
 
 MODE_TEXT_LOC = (685, 50)
 FUEL_TEXT_LOC = (695, 75)
+SEED_TEXT_LOC = (615, 25)
 
 PAUSE_TEXT = "Game Paused. Press Pause Key to Resume."
 PAUSE_TEXT_LOC = (150, 50)
@@ -148,8 +149,3 @@ TERRAIN_WINDOW = 60
 # Factors for state vector normalization
 MAX_VEL = 300
 MAX_OMEGA = 500
-
-# Capacity for replay buffer
-BUFFER_CAP = 10000
-EPISODE_CAP = 5000
-UPDATE_INTERVAL = 100

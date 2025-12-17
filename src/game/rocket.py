@@ -323,32 +323,24 @@ class Rocket:
 
     def apply_ai_action(self, action):
         # 0 = no thrust or torque
-        if action == 0:
-            self.flags.thrust = False
-            self.flags.left_torque = False
-            self.flags.right_torque = False
+        self.flags.thrust = False
+        self.flags.left_torque = False
+        self.flags.right_torque = False
+
         # 1 = thrust
-        elif action == 1:
+        if action == 1:
             self.flags.thrust = True
-            self.flags.left_torque = False
-            self.flags.right_torque = False
         # 2 = left torque
         elif action == 2:
-            self.flags.thrust = False
             self.flags.left_torque = True
-            self.flags.right_torque = False
         # 3 = right torque
         elif action == 3:
-            self.flags.thrust = False
-            self.flags.left_torque = False
             self.flags.right_torque = True
         # 4 = thrust + left torque
         elif action == 4:
             self.flags.thrust = True
             self.flags.left_torque = True
-            self.flags.right_torque = False
         # 5 = thrust + right torque
         elif action == 5:
             self.flags.thrust = True
-            self.flags.left_torque = False
             self.flags.right_torque = True

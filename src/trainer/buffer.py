@@ -5,7 +5,7 @@ import torch
 
 
 class ReplayBuffer:
-    def __init__(self, capacity=cfg.BUFFER_CAP):
+    def __init__(self, capacity):
         self.buffer = deque(maxlen=capacity)
 
     # Store a single transition tuple in the buffer, representing one step of experience

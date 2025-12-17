@@ -1,23 +1,44 @@
 import pygame
+import torch
 from game import constants as cfg
 from game.game import Game
 from game.level import Level
 from game.rocket import Rocket
 from game.events import handle_events
+from trainer.model import LanderNet
+from trainer.state import get_state
+from trainer.action import select_action
 
 # Initialize game and level
 game = Game()
-level = Level(game.images)
+level = Level(game.images, 0)
 player = Rocket(level.get_rocket_start_loc(), game.images, game.sounds)
+
+# Set device to GPU if available
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+# Initialize and load the trained model for AI control
+action_dim_choice = 2
+model = LanderNet(
+    state_dim=len(get_state(game, player, level)), action_dim=action_dim_choice
+).to(device)
+model.load_state_dict(torch.load("lander_model_phase_01a.pth", map_location=device))
+
+# Set epsilon to zero (no longer exploring since no longer training)
+epsilon = 0
 
 # Initialize clock
 clock = pygame.time.Clock()
 end_game_time_ms = None
+ai_frame = 0
 
 while game.flags.running:
     # Limit framerate based on defined constant
     delta_time_ms = clock.tick(cfg.FPS)
     delta_time_seconds = delta_time_ms / 1000.0
+
+    # AI actions limited to every 6th frame
+    ai_frame = (ai_frame + 1) % 6
 
     # Only process input if not within a game-ending delay
     in_end_delay = (
@@ -31,6 +52,14 @@ while game.flags.running:
     else:
         # Only process input when not in delay
         player, level = handle_events(game, player, level)
+        if cfg.MODES[game.mode_index] == "AI" and ai_frame == 0:
+            # Read the current environment state for the agent
+            state_vector = get_state(game, player, level)
+            state = torch.tensor(state_vector, dtype=torch.float32, device=device)
+            # Use the model to choose an action given the state
+            action = select_action(model, state, action_dim_choice, epsilon)
+            # Apply that action to the rocket
+            player.apply_ai_action(action)
 
     if game.flags.title:
         game.display_title()
