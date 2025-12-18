@@ -42,6 +42,7 @@ def plot_rewards(df, path="", save_png=True):
     )
     plt.title("Reward per Episode")
     plt.ylabel("Reward")
+    plt.xlabel("Training Episode")
     plt.grid(True, alpha=0.2)
     plt.legend(handles=OUTCOME_LEGEND)
     if save_png:
@@ -73,6 +74,7 @@ def plot_event_rate(df, path="", save_png=True):
     )
     plt.title("Rolling Average Event Rate per Episode")
     plt.ylabel("Rolling Average Event Rate (last 100)")
+    plt.xlabel("Training Episode")
     plt.grid(True, alpha=0.2)
     plt.legend()
     if save_png:
@@ -86,6 +88,7 @@ def plot_vertical_velocity(df, path="", save_png=True):
     plt.plot(df["episode_number"], df["vy_avg"], label="vy_avg", alpha=0.7)
     plt.title("Vertical Velocity (min/max/avg) per Episode")
     plt.ylabel("Velocity (m/s)")
+    plt.xlabel("Training Episode")
     plt.grid(True, alpha=0.2)
     plt.legend()
     if save_png:
@@ -99,6 +102,7 @@ def plot_vertical_distance_to_pad(df, path="", save_png=True):
     plt.plot(df["episode_number"], df["dy_pad_final"], label="dy_final")
     plt.title("Vertical Distance to Pad (max/min/final) per Episode")
     plt.ylabel("Normalized distance")
+    plt.xlabel("Training Episode")
     plt.grid(True, alpha=0.2)
     plt.legend()
     if save_png:
@@ -112,6 +116,7 @@ def plot_horizontal_distance_to_pad(df, path="", save_png=True):
     plt.plot(df["episode_number"], df["dx_pad_final"], label="dx_final")
     plt.title("Horizontal Distance to Pad (max/min/final) per Episode")
     plt.ylabel("Normalized distance")
+    plt.xlabel("Training Episode")
     plt.grid(True, alpha=0.2)
     plt.legend()
     if save_png:
@@ -131,6 +136,7 @@ def plot_action_mix(df, path="", save_png=True):
     plt.plot(df["episode_number"], right_torque_frac, label="right torque")
     plt.title("Action Mix per Episode")
     plt.ylabel("Fraction of Steps")
+    plt.xlabel("Training Episode")
     plt.grid(True, alpha=0.2)
     plt.legend()
     if save_png:
@@ -145,6 +151,7 @@ def plot_exploration(df, path="", save_png=True):
     plt.plot(df["episode_number"], df["epsilon"], label="epsilon")
     plt.title("Exploration per Episode")
     plt.ylabel("Exploration Steps / Total Steps, Epsilon")
+    plt.xlabel("Training Episode")
     plt.grid(True, alpha=0.2)
     plt.legend()
     if save_png:
@@ -152,32 +159,32 @@ def plot_exploration(df, path="", save_png=True):
 
 
 def plot_reward_components(df, path="", save_png=True):
-    fig, ax = plt.subplots(figsize=(12, 4))
+    plt.figure(figsize=(12, 4))
 
-    ax.plot(
+    plt.plot(
         df["episode_number"], df["r_velocity_direction"], label="r_velocity_direction"
     )
-    ax.plot(df["episode_number"], df["r_fuel"], label="r_fuel")
-    ax.plot(df["episode_number"], df["r_time"], label="r_time")
-    ax.plot(
+    plt.plot(df["episode_number"], df["r_fuel"], label="r_fuel")
+    plt.plot(df["episode_number"], df["r_time"], label="r_time")
+    plt.plot(
         df["episode_number"],
         df["r_horizontal_improvement"],
         label="r_horizontal_improvement",
     )
-    ax.plot(
+    plt.plot(
         df["episode_number"], df["r_horizontal_velocity"], label="r_horizontal_velocity"
     )
-    ax.plot(
+    plt.plot(
         df["episode_number"], df["r_angle_improvement"], label="r_angle_improvement"
     )
 
-    ax.set_title("Reward Components per Episode")
-    ax.set_ylabel("Reward Contribution")
-    ax.grid(True, alpha=0.2)
-    ax.legend()
+    plt.title("Reward Components per Episode")
+    plt.ylabel("Reward Contribution")
+    plt.xlabel("Training Episode")
+    plt.grid(True, alpha=0.2)
+    plt.legend()
     if save_png:
         plt.savefig(path + "_[08_reward_components].png", dpi=300, bbox_inches="tight")
-    return fig
 
 
 def plot_terminal_vs_shaping(df, path="", save_png=True):
@@ -191,16 +198,16 @@ def plot_terminal_vs_shaping(df, path="", save_png=True):
         + df["r_angle_improvement"]
     )
 
-    fig, ax = plt.subplots(figsize=(12, 4))
-    ax.plot(df["episode_number"], shaping_total, label="shaping_total")
-    ax.plot(df["episode_number"], df["r_terminal"], label="terminal_reward")
+    plt.figure(figsize=(12, 4))
+    plt.plot(df["episode_number"], shaping_total, label="shaping_total")
+    plt.plot(df["episode_number"], df["r_terminal"], label="terminal_reward")
 
-    ax.set_title("Shaping Total vs Terminal Reward per Episode")
-    ax.set_ylabel("Reward")
-    ax.grid(True, alpha=0.2)
-    ax.legend()
+    plt.title("Shaping Total vs Terminal Reward per Episode")
+    plt.ylabel("Reward")
+    plt.xlabel("Training Episode")
+    plt.grid(True, alpha=0.2)
+    plt.legend()
     if save_png:
         plt.savefig(
             path + "_[09_terminal_vs_shaping].png", dpi=300, bbox_inches="tight"
         )
-    return fig
