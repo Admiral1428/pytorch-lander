@@ -22,7 +22,7 @@ action_dim_choice = 2
 model = LanderNet(
     state_dim=len(get_state(game, player, level)), action_dim=action_dim_choice
 ).to(device)
-model.load_state_dict(torch.load("lander_model_phase_01a.pth", map_location=device))
+model.load_state_dict(torch.load("lander_model_phase_01.pth", map_location=device))
 
 # Set epsilon to zero (no longer exploring since no longer training)
 epsilon = 0
@@ -57,7 +57,7 @@ while game.flags.running:
             state_vector = get_state(game, player, level)
             state = torch.tensor(state_vector, dtype=torch.float32, device=device)
             # Use the model to choose an action given the state
-            action = select_action(model, state, action_dim_choice, epsilon)
+            action, _ = select_action(model, state, action_dim_choice, epsilon)
             # Apply that action to the rocket
             player.apply_ai_action(action)
 
