@@ -17,25 +17,9 @@ configs = [
         "update_interval": 200,
         "level_seeds": [58],
         "checkpoint_path": None,
-        "save_path": "lander_model_phase_01a.pth",
-        "log_path": "episode_log_phase_01a.txt",
+        "save_path": "lander_model_phase_01.pth",
+        "csv_plot_path": "lander_model_phase_01",
     },
-    # # Training phase 01b - prioritizing descent instead of escape (10 levels)
-    # {
-    #     "reward_phase": "phase1",
-    #     "action_dim": 2,
-    #     "epsilon_start": 0.1,
-    #     "epsilon_end": 0.01,
-    #     "epsilon_decay": 4000,
-    #     "gamma": 0.99,
-    #     "episode_cap": 10000,
-    #     "buffer_cap": 200000,
-    #     "update_interval": 200,
-    #     "level_seeds": [14, 27, 51, 58, 102, 109, 115, 127, 155, 179],
-    #     "checkpoint_path": "lander_model_phase_01a.pth",
-    #     "save_path": "lander_model_phase_01b.pth",
-    #     "log_path": "episode_log_phase_01b.txt",
-    # },
     # # Training phase 02 - focus on horizontal alignment
     # {
     #     "reward_phase": "phase2",
@@ -76,7 +60,7 @@ for config in configs:
         config["checkpoint_path"] is None or os.path.isfile(config["checkpoint_path"])
     ):
         train_loop(config)
-    if os.path.isfile(config["log_path"]):
-        plot_results(config["log_path"])
+    if os.path.isfile(config["csv_plot_path"] + ".csv"):
+        plot_results(config["csv_plot_path"])
 
 print("Training complete for all config phases!")
