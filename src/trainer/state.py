@@ -25,10 +25,10 @@ def get_state(game: Game, player: Rocket, level: Level):
 
     # Pad relative position (accounting for half height of rocket)
     pad_x, pad_y = level.get_pad_data()[0]
-    dx = (pad_x - pos_x) / level.get_width()
-    dy = (
-        (level.get_height() - pos_y - cfg.ROCKET_RENDER_WIDTH / 2) - pad_y
-    ) / level.get_height()
+    dx = (pos_x - pad_x) / level.get_width()
+    rocket_bottom = pos_y + cfg.ROCKET_RENDER_WIDTH / 2
+    pad_y_down = level.get_height() - pad_y
+    dy = (pad_y_down - rocket_bottom) / pad_y_down
 
     # Terrain slice
     terrain = level.get_terrain()

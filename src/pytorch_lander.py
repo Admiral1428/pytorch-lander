@@ -5,20 +5,21 @@ from game.game import Game
 from game.level import Level
 from game.rocket import Rocket
 from game.events import handle_events
+from plot.game_plots import init_plot_vars, get_plot_data, plot_rewards
 from trainer.model import LanderNet
 from trainer.state import get_state
 from trainer.action import select_action
 
 # Initialize game and level
 game = Game()
-level = Level(game.images, 0)
+level = Level(game.images, 13, 0.4)
 player = Rocket(level.get_rocket_start_loc(), game.images, game.sounds)
 
 # Set device to GPU if available
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # Initialize and load the trained model for AI control
-action_dim_choice = 2
+action_dim_choice = 4
 model = LanderNet(
     state_dim=len(get_state(game, player, level)), action_dim=action_dim_choice
 ).to(device)
@@ -31,6 +32,11 @@ epsilon = 0
 clock = pygame.time.Clock()
 end_game_time_ms = None
 ai_frame = 0
+
+# Set flag for whether to make episode reward plot
+make_plot = False
+shaping_log, step, prev_state, terminated = init_plot_vars()
+
 
 while game.flags.running:
     # Limit framerate based on defined constant
@@ -52,12 +58,12 @@ while game.flags.running:
     else:
         # Only process input when not in delay
         player, level = handle_events(game, player, level)
+        state_vector = get_state(game, player, level)
         if cfg.MODES[game.mode_index] == "AI" and ai_frame == 0:
             # Read the current environment state for the agent
-            state_vector = get_state(game, player, level)
             state = torch.tensor(state_vector, dtype=torch.float32, device=device)
             # Use the model to choose an action given the state
-            action, _ = select_action(model, state, action_dim_choice, epsilon)
+            action, _, _, _ = select_action(model, state, action_dim_choice, epsilon)
             # Apply that action to the rocket
             player.apply_ai_action(action)
 
@@ -65,22 +71,34 @@ while game.flags.running:
         game.display_title()
 
     elif game.flags.gameloop:
+        if make_plot:
+            shaping_log, step, prev_state = get_plot_data(
+                state_vector, player, prev_state, step, shaping_log
+            )
+
         player.update_state(delta_time_seconds)
         game.update_renderer(level, player)
         if game.calc_landing(level, player):
             player.stop_sounds()
             game.set_landing_flags()
             end_game_time_ms = pygame.time.get_ticks()
+            terminated = True
         elif game.escaped_boundary(level, player):
             player.stop_sounds()
             game.sounds["escape"].play()
             game.set_escape_flags()
             end_game_time_ms = pygame.time.get_ticks()
+            terminated = True
         elif game.calc_collision(level, player):
             player.stop_sounds()
             game.sounds["explosion"].play()
             game.set_collide_flags()
             end_game_time_ms = pygame.time.get_ticks()
+            terminated = True
+
+        if make_plot and terminated:
+            plot_rewards(shaping_log)
+            shaping_log, step, prev_state, terminated = init_plot_vars()
 
     elif game.flags.paused and not game.flags.pause_drawn:
         player.stop_sounds()

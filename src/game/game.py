@@ -33,6 +33,9 @@ class Game:
         pygame.mixer.init()
 
         # Use lucidaconsole text for retro look
+        self.fonts["largest"] = pygame.font.SysFont("lucidaconsole", 38)
+        self.fonts["larger"] = pygame.font.SysFont("lucidaconsole", 24)
+        self.fonts["large"] = pygame.font.SysFont("lucidaconsole", 18)
         self.fonts["normal"] = pygame.font.SysFont("lucidaconsole", 14)
 
         # Dimensions for window
@@ -106,14 +109,30 @@ class Game:
         # Update screen
         self.update_screen()
 
+    def draw_one_line(self, text_surface, locs):
+        self.render_surface.blit(text_surface, (locs[0], locs[1]))
+
     def display_title(self):
         # Load and center the image onto the render surface
         image = pygame.image.load(cfg.TITLE_DIR).convert_alpha()
-        image_rect = image.get_rect()
-        image_rect.center = (cfg.RENDER_WIDTH // 2, cfg.RENDER_HEIGHT // 2)
+        scaled_image = pygame.transform.scale(
+            image, (cfg.RENDER_WIDTH, cfg.RENDER_HEIGHT)
+        )
 
         # Blit image onto the render surface
-        self.render_surface.blit(image, image_rect)
+        self.render_surface.blit(scaled_image, (0, 0))
+
+        text_surface = self.fonts["largest"].render(cfg.TITLE_TEXT, True, "white")
+        self.draw_one_line(text_surface, cfg.TITLE_TEXT_LOC)
+
+        text_surface = self.fonts["large"].render(cfg.VERSION_TEXT, True, "white")
+        self.draw_one_line(text_surface, cfg.VERSION_TEXT_LOC)
+
+        text_surface = self.fonts["large"].render(cfg.AUTHOR_TEXT, True, "white")
+        self.draw_one_line(text_surface, cfg.AUTHOR_TEXT_LOC)
+
+        text_surface = self.fonts["larger"].render(cfg.START_TEXT, True, "white")
+        self.draw_one_line(text_surface, cfg.START_TEXT_LOC)
 
         # Update screen
         self.update_screen()
@@ -137,9 +156,7 @@ class Game:
             text_color = cfg.COLORS["red"]
 
         text_surface = self.fonts["normal"].render(cur_mode, True, text_color)
-
-        locs = cfg.MODE_TEXT_LOC
-        self.render_surface.blit(text_surface, (locs[0], locs[1]))
+        self.draw_one_line(text_surface, cfg.MODE_TEXT_LOC)
 
     def draw_fuel(self, player: Rocket):
         fuel_kg = player.get_fuel()
@@ -153,17 +170,14 @@ class Game:
             text_color = cfg.COLORS["red"]
 
         text_surface = self.fonts["normal"].render(str(fuel_pct), True, text_color)
-
-        locs = cfg.FUEL_TEXT_LOC
-        self.render_surface.blit(text_surface, (locs[0], locs[1]))
+        self.draw_one_line(text_surface, cfg.FUEL_TEXT_LOC)
 
     def draw_seed(self, level_seed):
         text_surface = self.fonts["normal"].render(
             "Level Seed: " + str(level_seed), True, cfg.COLORS["black"]
         )
 
-        locs = cfg.SEED_TEXT_LOC
-        self.render_surface.blit(text_surface, (locs[0], locs[1]))
+        self.draw_one_line(text_surface, cfg.SEED_TEXT_LOC)
 
     def draw_instructions(self):
         locs = cfg.GAME_TEXT_LOC
@@ -207,8 +221,7 @@ class Game:
 
     def draw_pause_text(self, text, text_loc, text_color):
         text_surface = self.fonts["normal"].render(text, True, text_color)
-        locs = text_loc
-        self.render_surface.blit(text_surface, (locs[0], locs[1]))
+        self.draw_one_line(text_surface, text_loc)
 
         # Update screen
         self.update_screen()
@@ -316,6 +329,21 @@ class Game:
             and self.landing_flags.horz_position
             and self.landing_flags.vert_position
         ):
+            return True
+        return False
+
+    def calc_horizontal_with_pad(self, level: Level, player: Rocket):
+        _, _, left_pad, right_pad = level.get_pad_data()
+
+        player_pos = player.get_pos()
+        player_horz_dim = player.get_height()
+
+        # entirety of rocket on pad horizontally
+        self.landing_flags.horz_position = left_pad < (
+            player_pos[0] - player_horz_dim / 2
+        ) and right_pad > (player_pos[0] + player_horz_dim / 2)
+
+        if self.landing_flags.horz_position:
             return True
         return False
 

@@ -14,7 +14,7 @@ class ReplayBuffer:
 
     # Retrieves a random minibatch of stored experience tuples and returns
     # them as PyTorch tensors so the agent can learn from past transitions
-    def sample(self, batch_size=64):
+    def sample(self, batch_size=128):
         batch = random.sample(self.buffer, batch_size)
         states, actions, rewards, next_states, dones = zip(*batch)
         return (

@@ -1,38 +1,25 @@
 import game.constants as cfg
 
 
-def calc_shaping_rewards(reward_phase, player, curr_y, curr_dx, curr_dy, prev_state):
+def calc_shaping_rewards(
+    reward_phase, player, curr_y, curr_dx, curr_dy, prev_state, terrain_slice
+):
     prev_dx, prev_dy, prev_vx, prev_vy, prev_angle = prev_state
     vx, vy = player.get_velocity()
-    angle = player.get_angle()
+    angle_dev = player.angle_deviation_from_upright()
 
     total_reward = 0
     reward = {}
 
-    # Phase 1: descent is better than escape
+    # Phase 1: descend towards pad and move horizontally towards it
     if reward_phase == "phase1":
-        reward["r_velocity_direction"] = r_velocity_direction(vy)
-        reward["r_fuel"] = r_fuel(player)
-
-    # Phase 2: horizontal alignment
-    elif reward_phase == "phase2":
-        reward["r_velocity_direction"] = r_velocity_direction(vy)
-        reward["r_fuel"] = r_fuel(player)
-        reward["r_horizontal_improvement"] = r_horizontal_improvement(prev_dx, curr_dx)
-
-    # Phase 3: precision landing
-    elif reward_phase == "phase3":
-        reward["r_velocity_direction"] = r_velocity_direction(vy)
-        reward["r_fuel"] = r_fuel(player)
-        reward["r_horizontal_improvement"] = r_horizontal_improvement(prev_dx, curr_dx)
-        reward["r_time"] = r_time()
-
-        if abs(curr_dx) < 0.15 and abs(curr_dy) < 0.4:
-            reward["r_horizontal_velocity"] = r_horizontal_velocity(vx)
-            reward["r_velocity_landing"] = r_velocity_landing(vy)
-            reward["r_angle_improvement"] = r_angle_improvement(prev_angle, angle)
-
-    # Invalid phase selection
+        reward["r_angle"] = r_angle(angle_dev, scale=0.05)
+        reward["r_vertical_position"] = r_vertical_position(curr_dy, scale=0.2)
+        reward["r_horizontal_position"] = r_horizontal_position(curr_dx, scale=0.2)
+        reward["r_terrain"] = r_terrain(terrain_slice, curr_dx, curr_y, scale=0.5)
+        reward["r_vertical_velocity"] = r_vertical_velocity(vy, scale=0.05)
+        reward["r_time"] = r_time(scale=-0.05)
+        reward["r_fuel"] = r_fuel(player, thrust_scale=1.0, torque_scale=1.5)
     else:
         raise ValueError(f"Unknown shaping mode: {reward_phase}")
 
@@ -45,53 +32,73 @@ def calc_shaping_rewards(reward_phase, player, curr_y, curr_dx, curr_dy, prev_st
 
 
 # Time penalty
-def r_time():
-    return -0.1
+def r_time(scale=-0.02):
+    return scale
 
 
 # Fuel penalties
-def r_fuel(player, scale=10.0):
+def r_fuel(player, thrust_scale=1.0, torque_scale=1.0):
     reward = 0
     if player.flags.thrust:
-        reward -= cfg.BURN_RATES_KG_S[0] * scale
+        reward -= cfg.BURN_RATES_KG_S[0] * thrust_scale
     if player.flags.left_torque or player.flags.right_torque:
-        reward -= cfg.BURN_RATES_KG_S[1] * scale
+        reward -= cfg.BURN_RATES_KG_S[1] * torque_scale
     return reward
 
 
-# Penalize upward velocity and reward downward velocity
-def r_velocity_direction(
-    vy, upscale=10.0, downscale=4.0, max_reward=8.0, max_penalty=40.0
-):
-    # vy < 0 towards pad
-    if vy < 0:
-        # Reward faster downward velocity, capped to avoid runaway incentives
-        return min(-downscale * vy, max_reward)
-    else:
-        # Penalize upward velocity
-        return -min(upscale * vy, max_penalty)
-
-
-# Reward horizontal impovement relative to pad
-def r_horizontal_improvement(prev_dx, curr_dx, scale=3.0):
-    return scale * (abs(prev_dx) - abs(curr_dx))
-
-
 # Reward velocity at or below safe landing velocity when relevant
-def r_velocity_landing(vy, scale=10.0):
+def r_velocity_landing(vy, downscale=0.5):
     # vy < 0 towards pad
     if -cfg.LANDING_VELOCITY < vy < 0:
-        return scale * ((-vy - cfg.LANDING_VELOCITY) / cfg.LANDING_VELOCITY)
+        return downscale * ((vy + cfg.LANDING_VELOCITY) / cfg.LANDING_VELOCITY)
+    return 0
 
 
-# Reward horizontal velocity at or below safe landing velocity when relevant
-def r_horizontal_velocity(vx, scale=10.0):
+# vertical position relative to pad
+def r_vertical_position(curr_dy, scale=0.01):
+    return -scale * abs(curr_dy)
+
+
+# horizontal position relative to pad
+def r_horizontal_position(curr_dx, scale=0.01):
+    return -scale * abs(curr_dx)
+
+
+def r_vertical_velocity(vy, scale=0.005, v_safe=cfg.LANDING_VELOCITY):
+    norm = (vy + v_safe) / v_safe  # peaks at vy = -v_safe
+
+    reward = scale * (1.0 - norm**2)
+
+    # Add explicit penalty for upward velocity
+    if vy > 0:
+        reward -= scale * (vy / v_safe) ** 2  # quadratic penalty
+
+    return reward
+
+
+# Reward horizontal velocity at or below safe landing velocity
+def r_horizontal_landing_velocity(vx, scale=0.5):
     if abs(vx) < cfg.LANDING_VELOCITY:
         return scale * ((abs(vx) - cfg.LANDING_VELOCITY) / cfg.LANDING_VELOCITY)
+    return 0
 
 
-# Reward angle improvement relative to vertical orientation
-def r_angle_improvement(prev_angle, angle, scale=2.0):
-    prev_margin = abs(prev_angle - 90)
-    curr_margin = abs(angle - 90)
-    return scale * (prev_margin - curr_margin)
+# Smooth angle penalty
+def r_angle(angle_dev, scale=0.1):
+    return -scale * angle_dev
+
+
+# Penalize close proximity to terrain
+def r_terrain(terrain_slice, curr_dx, curr_y, scale=0.005):
+    # Only penalize when not horizontally aligned with pad (since pad is part of terrain)
+    if abs(curr_dx) <= 0.2:
+        return 0
+
+    # Compute minimum vertical clearance to terrain, clamping at zero
+    min_clearance = max(min(1 - curr_y - h for h in terrain_slice), 0)
+
+    # If clearance is less than threshold, penalize proportionally
+    if min_clearance < 0.3:
+        return -scale * (0.3 - min_clearance)
+
+    return 0
