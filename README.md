@@ -66,7 +66,7 @@ The `Level` class initializes the position and appearance of the terrain, landin
 
 ## Training - Setup
 
-A single trajectory results in one of three possible terminal events:
+A single trajectory results in one of these possible terminal events:
 * Collision with terrain
 * Successful landing
 * Rocket escape off-screen
@@ -83,7 +83,7 @@ For simplicity, the latter two actions were excluded from the AI agent to reduce
 
 The `PyTorch` library was used to initialize and train the AI agent in different phases of increasing complexity, using Reinforcement Learning (RL). To expedite training, the simulation rate was limited to 10 Hz. When the model is re-inserted into the main game loop that runs at 60 Hz, the actions are limited to 10 Hz to remain consistent with the training. During training, the physics and state calculations are computed faster than real-time by using a fixed value for the time step, rather than a value representing elapsed time between displayed frames. A status message is shown in the terminal for the outcome of each episode, rather than displaying the game window with each trajectory:
 
-<img width="2906" height="344" alt="image" src="https://github.com/user-attachments/assets/1f33be6e-d6ba-4573-89d9-9ead7170b0bf" />
+<img width="2979" height="350" alt="image" src="https://github.com/user-attachments/assets/e87f6507-396d-4088-b407-da017beee1af" />
 <br><br>
 
 After initializing the `Game`, `Level`, and `Rocket` classes, the device for training calculations was set to the GPU if available (training utilized an NVIDIA RTX 3080 with [CUDA 12.6](https://download.pytorch.org/whl/cu126)):
@@ -103,77 +103,80 @@ At each training step, a state vector is computed which is converted into tensor
 * Normalized rocket position relative to landing pad (X and Y)
 * Terrain height values within a limited horizontal range of the rocket
 
-Once the state is computed and an action is selected, various shaping rewards are calculated depending on the training phase:
+Once the state is computed and an action is selected, various shaping rewards are calculated depending on the training phase. These are described in more detail in subsequent sections.
 
-| Shaping | Reward or Penalty? |
-|----------------|-------------|
-| Vertical velocity upwards | Penalty |
-| Vertical velocity downwards | Reward |
-| Fuel | Penalty |
-| Time | Penalty |
-| Angle within upright window | Reward |
-| Angle improving towards upright orientation | Reward |
-| Angle outside upright window or upside down | Penalty |
-| Horizontal improvement towards pad position | Reward |
-| Near terrain | Penalty |
-| Descent towards pad when horizontally aligned | Reward |
-| Horizontal alignment | Reward |
+Terminal rewards are also included for collision, pad contact, escape, over-rotation, or landing. These only occur at the last time step of the episode, whereas the shaping rewards occur for every time step.
 
-Terminal rewards are also included for collision, escape, or landing. These only occur at the last time step of the episode, whereas the shaping rewards occur for every time step.
+## Training Phase 1 - Descent and Horizontal Movement
 
-## Training Phase 1 - Descent
-
-The first training phase consisted of rewarding descent towards the surface and penalizing vertical escapes off-screen. This phase removed torque, leaving two possible actions: thrust or no thrust. The following hyperparameters were utilized:
+The first training phase consisted of rewarding horizontal and vertical progression towards the landing pad. The following hyperparameters were utilized:
 
 | Hyperparameter | Description |
 |----------------|-------------|
 | **Epsilon start:** `ε = 1.0` | Agent begins training with full exploration, choosing random actions 100% of the time. |
-| **Epsilon end:** `ε = 0.05` | Exploration decays to a minimum of 5% to prevent overfitting and maintain some randomness. |
-| **Epsilon decay:** `4000` episodes | Controls how quickly ε moves from 1.0 to 0.05, shifting behavior from exploration to exploitation. |
+| **Epsilon end:** `ε = 0.2` | Exploration decays to a minimum of 20% to prevent overfitting and maintain some randomness. |
+| **Epsilon decay:** `4500` episodes | Controls how quickly ε moves from 1.0 to 0.2, shifting behavior from exploration to exploitation. |
 | **Discount factor:** `γ = 0.99` | Makes the agent value long‑term cumulative reward almost as much as immediate reward. |
-| **Max episodes:** `10,000` | Caps episode length to prevent infinite or unproductive trajectories. |
+| **Max episodes:** `5000` | Caps episode length to prevent infinite or unproductive trajectories. |
 | **Replay buffer size:** `100,000` | Maximum number of past transitions stored for sampling during training. |
-| **Update interval:** `200` steps | Number of environment steps between each training update, determining how often the network learns. |
+| **Update interval:** `4` steps | Number of environment steps between each training update, determining how often the network learns. |
+| **Warmup steps:** `2000` steps | Number of preliminary steps before learning is allowed to begin. |
+| **Evaluation interval:** `200` episodes | How often to conduct assessment of model with full exploitation. |
 
 The shaping and terminal rewards were limited to the following:
 
 | Type | Name | Reward or Penalty? |
 |------|------|--------------------|
-| Shaping | Vertical velocity upwards | Penalty |
-| Shaping | Vertical velocity downwards | Reward |
+| Shaping | Angle | Penalty |
+| Shaping | Vertical Position Relative to Pad | Penalty |
+| Shaping | Horizontal Position Relative to Pad | Penalty |
+| Shaping | Terrain Proximity | Penalty |
+| Shaping | Vertical Velocity | Penalty / Reward |
+| Shaping | Time | Penalty |
 | Shaping | Fuel | Penalty |
-| Terminal | Escape | Penalty |
+| Terminal | Escape | Penalty = -600 |
+| Terminal | Over-Rotation beyond 90 degrees | Penalty = -400 |
+| Terminal | Crashed into Terrain | Penalty = -175 |
+| Terminal | Pad contact | Reward = 200 |
+| Terminal | Landing | Reward = 200 |
 
-Additional stopping criteria were specified to ensure that the model could terminate training if successful behavior was encountered before reaching the final episode:
-* Last 100 episodes escape rate $< 1 \\%$
-* Last 100 episodes "no action" rate $> 85 \\%$
-* Last 100 episodes max $v_y < 1$ m/s 
+When the model was evaluated every 200 episodes with $\varepsilon = 0$, the training plot and model were exported if the pad contact rate exceeded 25 percent. It was determined that 100 percent pad contact occurred at episode 3800 of 5000, which is also near the peak pad contact rate during training. Evaluation with full exploitation was necessary, since relying on the training contact rate alone was not necessarily an indication of training success.
 
-A series of plots were created to help diagnose behaviors for tuning the shaping terms and hyperparameters, and a subset is shown here which illustrates successful descent behavior prior to 3500 episodes:
+Another way to expedite training was to introduce a success buffer, which is populated with steps from the successful pad contact or landing episodes. This buffer is used more frequently than the main buffer, since the latter contains failure trajectories with less useful behaviors after exploration has revealed successful cases. The following policy was utilized:
+| Rolling Pad Contact Rate | Frequency of Success Buffer Usage |
+|------|------|
+| < 20% | 40% |
+| < 50% | 50% |
+| < 75% | 60% |
+| ≥ 75% | 70% |
 
-### **Collisions occur 100% of the time:**
-<img width="3004" height="1176" alt="lander_model_phase_01_ 02_event_rates" src="https://github.com/user-attachments/assets/284e88be-63f1-4ac1-9775-5eee431fd401" />
+A series of plots were created to help diagnose behaviors for tuning the shaping terms and hyperparameters, and a subset is shown here which illustrates high pad contact rates near episode 3800:
 
-### **Max vertical velocity is close to zero:**
-<img width="3025" height="1176" alt="lander_model_phase_01_ 03_vert_velocity" src="https://github.com/user-attachments/assets/a0cf615b-8890-4330-8ed3-7455c02980e0" />
+### **High pad contact rate at episode 3800:**
+<img width="3004" height="1176" alt="lander_model_phase_01_ 02_event_rates  - arrow" src="https://github.com/user-attachments/assets/b9561fd9-b907-4855-b76c-4508c5c77bd8" />
 
-### **Final vertical distance to pad is zero:**
-<img width="3004" height="1176" alt="lander_model_phase_01_ 04_vert_dist" src="https://github.com/user-attachments/assets/f7981208-e7e2-4dcb-b307-015ae7d53628" />
+### **Vertical distance to pad is near zero at episode 3800:**
+<img width="3038" height="1176" alt="lander_model_phase_01_ 04_vert_dist  - arrow" src="https://github.com/user-attachments/assets/73621118-f31d-4560-bb31-0262e3f1929c" />
 
-### **No thrust is the dominant action:**
-<img width="3004" height="1176" alt="lander_model_phase_01_ 07_action_mix" src="https://github.com/user-attachments/assets/bceff3f1-41d7-4781-831a-c9b27067443f" />
+### **Horizontal distance to pad is near zero at episode 3800:**
+<img width="3038" height="1176" alt="lander_model_phase_01_ 05_horz_dist  - arrow" src="https://github.com/user-attachments/assets/b2ad6263-2a6b-4d86-9c38-12444805b662" />
+
+### **Trajectory visualization with green success and blue failure:**
+<img width="1398" height="1361" alt="training_trajectories_episode_3800_rate_100" src="https://github.com/user-attachments/assets/29496ae6-9298-457f-9149-21178705219c" />
 
 Given this convergence, the model was saved into an external file `lander_model_phase_01.pth` and could be used within the main game loop to produce descent:
 
-https://github.com/user-attachments/assets/1da2f398-b951-4354-9618-0b1afcba84b1
+https://github.com/user-attachments/assets/e188e5a0-bdc1-49fd-95ae-fa7f03c7dccd
 
-## Training Phase 2 - Horizontal Movement
+## Future Training Phases
 
-## Training Phase 3 - Landing
-
-The specific criteria for successful landing are as follows:
+Future training will focus on achieving a fully successful landing, defined by the following criteria:
 * Horizontal velocity less than safe threshold
 * Vertical velocity less than safe threshold
 * Landing angle within tolerance (nearly upright)
 * Entirety of rocket positioned on pad horizontally
 * Rocket is touching pad vertically within tolerance
+
+Achieving this will likely require an additional round of Phase 1 training with a higher initial starting altitude to give the agent more time to stabilize its descent from normal starting altitudes. Subsequently, new shaping terms can be introduced for the final landing phase—rewarding safe velocities, upright angles, and precise pad alignment. Each stage would initialize from the previous model checkpoint to accelerate convergence and preserve learned behaviors.
+
+Training so far has shown that the agent is extremely sensitive to hyperparameters, shaping magnitudes, and terminal reward structure. This sensitivity has been one of the most interesting aspects of the project: the agent frequently discovers locally optimal but undesirable behaviors, and careful reward design is required to guide it toward true success cases.
