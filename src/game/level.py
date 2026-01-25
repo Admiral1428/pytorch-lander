@@ -3,13 +3,25 @@ from game import constants as cfg
 
 
 class Level:
-    def __init__(self, images, seed=None):
+    def __init__(self, images, seed=None, height=cfg.ROCKET_START_HEIGHT_FACTOR):
         self.width = int(cfg.LEVEL_WIDTH)
         self.height = int(cfg.LEVEL_HEIGHT)
 
         # Local RNG for reproducibility
         self.seed = seed
         self.rng = random.Random(seed)
+
+        # Set initial location of player within level
+        self.rocket_loc = self.init_rocket_location(height)
+
+        # Set width and position of landing pad
+        self.pad_width = int(self.width * cfg.PAD_WIDTH_RATIO)
+        self.pad_loc = self.init_pad_location()
+        self.pad_left = self.pad_loc[0] - self.pad_width / 2
+        self.pad_right = self.pad_loc[0] + self.pad_width / 2
+
+        # Generate terrain
+        self.terrain = self.init_terrain()
 
         # Set sky image
         if images == None:
@@ -22,18 +34,6 @@ class Level:
         # Set colors
         self.pad_color = cfg.COLORS["white"]
         self.ground_color = self.init_ground_color()
-
-        # Set initial location of player within level
-        self.rocket_loc = self.init_rocket_location()
-
-        # Set width and position of landing pad
-        self.pad_width = int(self.width * cfg.PAD_WIDTH_RATIO)
-        self.pad_loc = self.init_pad_location()
-        self.pad_left = self.pad_loc[0] - self.pad_width / 2
-        self.pad_right = self.pad_loc[0] + self.pad_width / 2
-
-        # Generate terrain
-        self.terrain = self.init_terrain()
 
     def init_sky_image(self):
         return self.rng.choice(
@@ -54,7 +54,7 @@ class Level:
             ]
         )
 
-    def init_rocket_location(self):
+    def init_rocket_location(self, height):
         # left-most and right-most locations (at least a full width from edge)
         rocket_width = cfg.ROCKET_RENDER_WIDTH
         min_center_x = int(0 + rocket_width)
@@ -64,7 +64,7 @@ class Level:
         xloc = self.rng.randint(min_center_x, max_center_x)
 
         # y location at specified height
-        yloc = int(self.height - self.height * cfg.ROCKET_START_HEIGHT_FACTOR)
+        yloc = int(self.height - self.height * height)
 
         return [xloc, yloc]
 

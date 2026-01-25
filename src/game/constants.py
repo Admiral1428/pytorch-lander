@@ -50,7 +50,7 @@ WINDOW_HEIGHT = 900
 TITLE_TEXT = "PyTorch Lander"
 
 # Title screen location
-TITLE_DIR = "../assets/title.png"
+TITLE_DIR = "../assets/images/title.png"
 
 # Sound effects location
 SOUNDS_DIR = "../assets/sounds/"
@@ -82,6 +82,18 @@ GAME_TEXT_LOC = (615, 50, 25)
 MODE_TEXT_LOC = (685, 50)
 FUEL_TEXT_LOC = (695, 75)
 SEED_TEXT_LOC = (615, 25)
+
+TITLE_TEXT = "PyTorch Lander"
+TITLE_TEXT_LOC = (250, 30)
+
+VERSION_TEXT = "v1.0.0, January 2026"
+VERSION_TEXT_LOC = (300, 80)
+
+AUTHOR_TEXT = "Created by Tim Roble"
+AUTHOR_TEXT_LOC = (300, 108)
+
+START_TEXT = "Press Any Key to Continue"
+START_TEXT_LOC = (235, 160)
 
 PAUSE_TEXT = "Game Paused. Press Pause Key to Resume."
 PAUSE_TEXT_LOC = (150, 50)

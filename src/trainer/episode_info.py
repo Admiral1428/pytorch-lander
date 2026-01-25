@@ -13,15 +13,6 @@ def init_episode_info():
     episode_info["action_count_3_right_torque"] = 0
     episode_info["action_count_exploration"] = 0
     episode_info["action_count_exploitation"] = 0
-    episode_info["r_total"] = 0
-    episode_info["r_terminal"] = 0
-    episode_info["r_velocity_direction"] = 0
-    episode_info["r_fuel"] = 0
-    episode_info["r_horizontal_improvement"] = 0
-    episode_info["r_time"] = 0
-    episode_info["r_horizontal_velocity"] = 0
-    episode_info["r_velocity_landing"] = 0
-    episode_info["r_angle_improvement"] = 0
     episode_info["vy_min"] = float("inf")
     episode_info["vy_max"] = float("-inf")
     episode_info["vy_avg"] = 0
@@ -36,17 +27,24 @@ def init_episode_info():
     episode_info["dx_pad_min"] = float("inf")
     episode_info["dx_pad_max"] = float("-inf")
     episode_info["dx_pad_final"] = None
+    episode_info["dx_pad_final_abs"] = None
     episode_info["angle_min"] = float("inf")
     episode_info["angle_max"] = float("-inf")
-    episode_info["angle_avg"] = 9
+    episode_info["angle_avg"] = 0
     episode_info["angle_final"] = None
     episode_info["rolling_avg_landing_rate"] = None
     episode_info["rolling_avg_escape_rate"] = None
     episode_info["rolling_avg_collision_rate"] = None
+    episode_info["rolling_avg_flip_rate"] = None
+    episode_info["rolling_avg_pad_contact_rate"] = None
     episode_info["rolling_avg_action_nothing"] = None
     episode_info["rolling_avg_vy_max"] = None
-    episode_info["rolling_avg_dx_pad_final"] = None
+    episode_info["rolling_avg_dx_pad_final_abs"] = None
+    episode_info["rolling_avg_angle_min"] = None
+    episode_info["rolling_avg_angle_max"] = None
     episode_info["rolling_avg_reward"] = None
+    episode_info["q_max_avg"] = 0
+    episode_info["q_mean_avg"] = 0
 
     return episode_info
 
@@ -70,15 +68,22 @@ def episode_action_count(episode_info, action, is_random):
 # Increment shaping reward counts within episode info
 def episode_cumulative_shaping(episode_info, shaping_rewards):
     for key, value in shaping_rewards.items():
-        episode_info[key] += value
+        if key not in episode_info:
+            episode_info[key] = value
+            if key != "r_total":
+                episode_info[key + "_abs"] = abs(value)
+        else:
+            episode_info[key] += value
+            if key != "r_total":
+                episode_info[key + "_abs"] += abs(value)
 
 
 # Update min, max, and average values for episode info
-def episode_min_max_avg(episode_info, vx, vy, angle, dx_pad, dy_pad):
+def episode_min_max_avg(episode_info, vx, vy, angle, dx_pad, dy_pad, max_q, mean_q):
     # horizontal velocity
     episode_info["vx_min"] = min(episode_info["vx_min"], vx)
     episode_info["vx_max"] = max(episode_info["vx_max"], vx)
-    episode_info["vx_avg"] += vy
+    episode_info["vx_avg"] += vx
     # vertical velocity
     episode_info["vy_min"] = min(episode_info["vy_min"], vy)
     episode_info["vy_max"] = max(episode_info["vy_max"], vy)
@@ -90,12 +95,15 @@ def episode_min_max_avg(episode_info, vx, vy, angle, dx_pad, dy_pad):
     episode_info["dy_pad_min"] = min(episode_info["dy_pad_min"], dy_pad)
     episode_info["dy_pad_max"] = max(episode_info["dy_pad_max"], dy_pad)
     # angle
-    episode_info["angle_min"] = min(episode_info["angle_min"], vx)
-    episode_info["angle_max"] = max(episode_info["angle_max"], vx)
+    episode_info["angle_min"] = min(episode_info["angle_min"], angle)
+    episode_info["angle_max"] = max(episode_info["angle_max"], angle)
     episode_info["angle_avg"] += angle
+    # q-values
+    episode_info["q_max_avg"] += max_q
+    episode_info["q_mean_avg"] += mean_q
 
 
-# Calculate rolling average rate of occurence of episode outcome
+# Calculate rolling average rate of occurrence of episode outcome
 def get_outcome_rate(outcome_key, outcome_string, recent_episodes):
     event_count = sum(1 for ep in recent_episodes if ep[outcome_key] == outcome_string)
     return event_count / len(recent_episodes)
@@ -111,3 +119,42 @@ def get_action_frequency(step_key, action_key, recent_episodes):
 def get_value_average(value_key, recent_episodes):
     value_count = sum(ep[value_key] for ep in recent_episodes)
     return value_count / len(recent_episodes)
+
+
+def get_episode_info_fields(episode_info, recent_episodes):
+    # Compute terminal event rates
+    episode_info["rolling_avg_landing_rate"] = get_outcome_rate(
+        "episode_outcome", "landing", recent_episodes
+    )
+    episode_info["rolling_avg_escape_rate"] = get_outcome_rate(
+        "episode_outcome", "escaped", recent_episodes
+    )
+    episode_info["rolling_avg_collision_rate"] = get_outcome_rate(
+        "episode_outcome", "collision", recent_episodes
+    )
+    episode_info["rolling_avg_pad_contact_rate"] = get_outcome_rate(
+        "episode_outcome", "pad contact", recent_episodes
+    )
+    episode_info["rolling_avg_flip_rate"] = get_outcome_rate(
+        "episode_outcome", "flipped", recent_episodes
+    )
+
+    # Compute frequency of "no action"
+    episode_info["rolling_avg_action_nothing"] = get_action_frequency(
+        "num_steps", "action_count_0_nothing", recent_episodes
+    )
+
+    # Compute rolling averages
+    episode_info["rolling_avg_vy_max"] = get_value_average("vy_max", recent_episodes)
+    episode_info["rolling_avg_dx_pad_final_abs"] = get_value_average(
+        "dx_pad_final_abs", recent_episodes
+    )
+    episode_info["rolling_avg_angle_min"] = get_value_average(
+        "angle_min", recent_episodes
+    )
+    episode_info["rolling_avg_angle_max"] = get_value_average(
+        "angle_max", recent_episodes
+    )
+    episode_info["rolling_avg_reward"] = get_value_average("r_total", recent_episodes)
+
+    return episode_info

@@ -8,26 +8,33 @@ from trainer.buffer import ReplayBuffer
 from trainer.model import LanderNet
 from trainer.reward import calc_shaping_rewards
 from trainer.train import train_step
+from trainer.utils import (
+    get_epsilon,
+    print_episode,
+    print_csv_summary,
+    export_checkpoint,
+    get_success_buffer_rate,
+    evaluate_policy,
+)
 from trainer.episode_info import (
     init_episode_info,
     episode_action_count,
     episode_cumulative_shaping,
     episode_min_max_avg,
-    get_outcome_rate,
-    get_action_frequency,
-    get_value_average,
+    get_episode_info_fields,
 )
+from plot.train_plots import plot_trajectory
 from collections import deque
 import torch
 import random
-import csv
+import matplotlib.pyplot as plt
 
 
 def train_loop(config):
 
     # Initialize game and level
     game = Game(-1)
-    level = Level(None, random.choice(config["level_seeds"]))
+    level = Level(None, random.choice(config["level_seeds"]), config["starting_height"])
     player = Rocket(level.get_rocket_start_loc())
 
     # Simulation rate for training
@@ -36,8 +43,10 @@ def train_loop(config):
     # Set device to GPU if available
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    # Initialize replay buffer
-    buffer = ReplayBuffer(config["buffer_cap"])
+    # Initialize replay buffers, batch size and the percentage to take from them
+    main_buffer = ReplayBuffer(config["buffer_cap"])
+    success_buffer = ReplayBuffer(config["buffer_cap"])
+    batch_size = 64
 
     # Action dimension (possible actions allowed in this training phase)
     action_dim_choice = config["action_dim"]
@@ -49,9 +58,15 @@ def train_loop(config):
 
     # Load previous training if applicable
     if config["checkpoint_path"] is not None:
-        model.load_state_dict(
-            torch.load(config["checkpoint_path"], map_location=device)
-        )
+        state_dict = torch.load(config["checkpoint_path"], map_location=device)
+
+        # Remove output layer weights since inconsistent with new action_dim
+        if config["reward_phase"] == "phase2":
+            state_dict.pop("net.4.weight", None)
+            state_dict.pop("net.4.bias", None)
+
+        # Load the rest
+        model.load_state_dict(state_dict, strict=False)
 
     # Initialize target model
     target_model = LanderNet(
@@ -65,15 +80,13 @@ def train_loop(config):
     epsilon_decay = config["epsilon_decay"]
     gamma = config["gamma"]
 
-    # Terminal reward amounts
+    # Terminal reward amounts and save criteria
     if config["reward_phase"] == "phase1":
-        landing_reward = 0
-        escape_reward = -10000
-        crash_reward = 0
-    else:
-        landing_reward = 5000
-        escape_reward = -1000
-        crash_reward = -1000
+        landing_reward = 200
+        escape_reward = -600
+        flip_reward = -400
+        crash_reward = -175
+        pad_reward = 200
 
     # Initialize number of steps, number of episodes, and episode reward
     steps = 0  # training frequency (every physics frame)
@@ -87,28 +100,44 @@ def train_loop(config):
     episode_info = init_episode_info()
     all_episodes = []
 
+    # Create list to store episode steps
+    episode_transitions = []
+
     # Open log file and create deque of last 100 cases
     recent_episodes = deque(maxlen=100)
+    rolling_pad = 0
+
+    # Create a persistent figure and axis once
+    fig, ax = plt.subplots()
+    plt.ion()  # interactive mode so the window stays open and updates
+    plt.show()
+    xs = []
+    ys = []
 
     while episodes < config["episode_cap"]:
 
-        # Get current epsilon using decay rate
-        epsilon = max(
+        epsilon = get_epsilon(
+            epsilon_start,
             epsilon_end,
-            epsilon_start - (episodes / epsilon_decay) * (epsilon_start - epsilon_end),
+            episodes,
+            epsilon_decay,
         )
+
+        # Refine rate of success buffer usage
+        buffer_pct = get_success_buffer_rate(rolling_pad)
 
         # Get current state
         state_vector = get_state(game, player, level)
         state = torch.tensor(state_vector, dtype=torch.float32, device=device)
+        curr_x = state_vector[0]
         curr_y = state_vector[1]
         curr_dx = state_vector[8]
         curr_dy = state_vector[9]
+        terrain_from_bottom = state_vector[10:]
         vel_x, vel_y = player.get_velocity()
         angle = player.get_angle()
-
-        # Use current state values to update episode info min, max, avg
-        episode_min_max_avg(episode_info, vel_x, vel_y, angle, curr_dx, curr_dy)
+        xs.append(curr_x)
+        ys.append(curr_y)
 
         # If first step, need to assign previous delta positions values
         if prev_state[0] == None and prev_state[1] == None:
@@ -116,14 +145,27 @@ def train_loop(config):
             prev_state[1] = curr_dy
 
         # Select and apply action
-        action, is_random = select_action(model, state, action_dim_choice, epsilon)
+        action, is_random, max_q, mean_q = select_action(
+            model, state, action_dim_choice, epsilon
+        )
         player.apply_ai_action(action)
         player.update_state(delta_time_seconds)
         episode_action_count(episode_info, action, is_random)
 
-        # Calcluate minor shaping rewards
+        # Use current state values to update episode info min, max, avg
+        episode_min_max_avg(
+            episode_info, vel_x, vel_y, angle, curr_dx, curr_dy, max_q, mean_q
+        )
+
+        # Calculate minor shaping rewards
         shaping_rewards = calc_shaping_rewards(
-            config["reward_phase"], player, curr_y, curr_dx, curr_dy, prev_state
+            config["reward_phase"],
+            player,
+            curr_y,
+            curr_dx,
+            curr_dy,
+            prev_state,
+            terrain_from_bottom,
         )
         step_reward = shaping_rewards["r_total"]
         episode_reward += step_reward
@@ -137,15 +179,23 @@ def train_loop(config):
         if game.calc_landing(level, player):
             terminal_award = landing_reward
             done = True
-            event_description = "successful landing"
+            event_description = "landing"
         elif game.escaped_boundary(level, player):
             terminal_award = escape_reward
             done = True
-            event_description = "escaped boundary"
+            event_description = "escaped"
         elif game.calc_collision(level, player):
-            terminal_award = crash_reward
+            if game.calc_horizontal_with_pad(level, player):
+                terminal_award = pad_reward
+                event_description = "pad contact"
+            else:
+                terminal_award = crash_reward
+                event_description = "collision"
             done = True
-            event_description = "collision detected"
+        elif player.angle_deviation_from_upright() > 90:
+            terminal_award = flip_reward
+            done = True
+            event_description = "flipped"
         else:
             terminal_award = 0
 
@@ -156,14 +206,36 @@ def train_loop(config):
         # Get next state
         next_state_vector = get_state(game, player, level)
 
-        # Store transition
-        buffer.add(state_vector, action, step_reward, next_state_vector, done)
+        # Store transition into temporary list
+        episode_transitions.append(
+            (state_vector, action, step_reward, next_state_vector, done)
+        )
 
-        # Train model
-        train_step(model, target_model, buffer, device, gamma)
+        # Train model either using success buffer or main buffer
+        if random.random() < buffer_pct and len(success_buffer) > batch_size:
+            train_step(model, target_model, success_buffer, device, gamma, batch_size)
+        else:
+            train_step(model, target_model, main_buffer, device, gamma, batch_size)
 
         # Reset if episode ended
         if done:
+            traj_color = "red"
+            if event_description == "pad contact":
+                traj_color = "lightgreen"
+                for t in episode_transitions:
+                    success_buffer.add(*t)
+            else:
+                for t in episode_transitions:
+                    main_buffer.add(*t)
+
+            # Reset transitions for next episode
+            episode_transitions = []
+
+            # Plot trajectory and clear vars
+            plot_trajectory(xs, ys, ax, fig, traj_color, level.get_seed())
+            xs = []
+            ys = []
+
             episode_info["r_terminal"] = terminal_award
             episode_info["r_total"] = episode_reward
 
@@ -185,57 +257,31 @@ def train_loop(config):
                 episode_info["vy_avg"] /= episode_info["num_steps"]
                 episode_info["vx_avg"] /= episode_info["num_steps"]
                 episode_info["angle_avg"] /= episode_info["num_steps"]
+                episode_info["q_max_avg"] /= episode_info["num_steps"]
+                episode_info["q_mean_avg"] /= episode_info["num_steps"]
             except:
-                raise ZeroDivisionError("Error: numer of steps is zero for episode.")
+                raise ZeroDivisionError("Error: number of steps is zero for episode.")
 
             # Get final values for episode info
             episode_info["vy_final"] = vel_y
             episode_info["vx_final"] = vel_x
             episode_info["dy_pad_final"] = curr_dy
             episode_info["dx_pad_final"] = curr_dx
+            episode_info["dx_pad_final_abs"] = abs(curr_dx)
             episode_info["angle_final"] = angle
 
             # Append episode to deque
             recent_episodes.append(episode_info.copy())
 
-            # Compute terminal event rates
-            episode_info["rolling_avg_landing_rate"] = get_outcome_rate(
-                "episode_outcome", "successful landing", recent_episodes
-            )
-            episode_info["rolling_avg_escape_rate"] = get_outcome_rate(
-                "episode_outcome", "escaped boundary", recent_episodes
-            )
-            episode_info["rolling_avg_collision_rate"] = get_outcome_rate(
-                "episode_outcome", "collision detected", recent_episodes
-            )
+            # Populate multiple fields in episode info
+            episode_info = get_episode_info_fields(episode_info, recent_episodes)
 
-            # Compute frequency of "no action"
-            episode_info["rolling_avg_action_nothing"] = get_action_frequency(
-                "num_steps", "action_count_0_nothing", recent_episodes
-            )
+            # Print episode to terminal
+            print_episode(episode_info, episodes, event_description, episode_reward)
 
-            # Compute rolling average vy_max, dx_pad_final, and total reward
-            episode_info["rolling_avg_vy_max"] = get_value_average(
-                "vy_max", recent_episodes
-            )
-            episode_info["rolling_avg_dx_pad_final"] = get_value_average(
-                "dx_pad_final", recent_episodes
-            )
-            episode_info["rolling_avg_reward"] = get_value_average(
-                "r_total", recent_episodes
-            )
-
-            # Print episode summary to screen
-            episode_summary = f"Episode {episodes}: {event_description}, total reward = {episode_reward:.2f}"
-            landing_summary = (
-                f" ... Recent collision rate: {episode_info["rolling_avg_collision_rate"]:.2f}, "
-                f"landing rate: {episode_info["rolling_avg_landing_rate"]:.2f}, "
-                f"avg reward: {episode_info["rolling_avg_reward"]:.1f}"
-            )
-            print(episode_summary + landing_summary)
-
-            # Save episode to list
+            # Save episode to list and determine rolling rate of success
             all_episodes.append(episode_info.copy())
+            rolling_pad = all_episodes[-1]["rolling_avg_pad_contact_rate"]
 
             # Reset and increment
             episode_reward = 0
@@ -244,48 +290,42 @@ def train_loop(config):
             episode_info = init_episode_info()
 
             # Get another random level
-            level = Level(None, random.choice(config["level_seeds"]))
+            level = Level(
+                None, random.choice(config["level_seeds"]), config["starting_height"]
+            )
+
+            # Evaulate policy with zero epsilon if episode number is at interval
+            if episodes % config["eval_interval"] == 0 and episodes > 0:
+                [passed_test, success_rate] = evaluate_policy(
+                    config,
+                    model,
+                    action_dim_choice,
+                    device,
+                    delta_time_seconds,
+                    eval_episodes=50,
+                    rate_threshold=0.25,
+                )
+                if passed_test:
+                    # Export model and image
+                    export_checkpoint(model, config, plt, episodes, success_rate)
 
         # Update target network frequently enough to track online network,
-        # but not too frequent to destabilize Q-learning
-        if steps % config["update_interval"] == 0:
+        # but not too frequent to destabilize Q-learning. Only do so after
+        # a certain number of warmup steps have occured
+        if steps > config["warmup_steps"] and steps % config["update_interval"] == 0:
             target_model.load_state_dict(model.state_dict())
 
         # update steps
         steps += 1
-
-        # Early stopping criteria
-        if config["reward_phase"] == "phase1":
-            if (
-                len(recent_episodes) == 100
-                and all_episodes[-1]["rolling_avg_escape_rate"] < 0.01
-                and all_episodes[-1]["rolling_avg_action_nothing"] > 0.85
-                and all_episodes[-1]["rolling_avg_vy_max"] < 1
-            ):
-                print("Early stopping: consistent descent behavior.")
-                break
-        elif config["reward_phase"] == "phase2":
-            if (
-                len(recent_episodes) == 100
-                and all_episodes[-1]["rolling_avg_dx_pad_final"] < 0.05
-            ):
-                print("Early stopping: horizontal convergence is frequent.")
-                break
-        elif config["reward_phase"] == "phase3":
-            if (
-                len(recent_episodes) == 100
-                and all_episodes[-1]["rolling_avg_landing_rate"] > 0.95
-            ):
-                print("Early stopping: landing success is frequent.")
-                break
 
     # Save model after training
     torch.save(model.state_dict(), config["save_path"])
     print("Model saved to " + config["save_path"])
 
     # Create csv file output
-    fieldnames = list(episode_info.keys())
-    with open(config["csv_plot_path"] + ".csv", "w", newline="") as csvfile:
-        writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
-        writer.writeheader()
-        writer.writerows(all_episodes)
+    print_csv_summary(all_episodes, config)
+
+    # Save trajectory plot after training
+    plt.ioff()  # turn off interactive mode
+    plt.savefig("training_trajectories.png", dpi=300, bbox_inches="tight")
+    plt.close()  # close the figure window
