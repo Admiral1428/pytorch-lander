@@ -13,6 +13,15 @@ https://github.com/user-attachments/assets/6813e678-4339-40f4-8592-38676eb4cb30
 
 The purpose of this project was to practice programming skills in Python and PyTorch by blending game development, physics simulation, and AI/ML integration. The intent was to create a playable experience and a technical showcase.
 
+## Installation
+
+PyTorch’s runtime libraries are extremely large, and packaging them into a standalone ``.exe`` produces a multi‑gigabyte file. For practicality, the project is provided as source code instead of a compiled executable. Please follow these steps to install the project:
+  * Download and install Python 3.13.5 or newer.
+  * Add your Python installation folder and the associated ``Scripts`` folder to your system environment variables "Path" variable.
+  * Download the project source code and unzip, or clone the repository using Git.
+  * Install the project's dependencies from the root directory by running the following command: ``pip install -r requirements.txt``
+  * You can then run the game or training program directly from the source code. 
+
 ## Design and Modeling
 
 Similar to the arcade game *Lunar Lander (1979)*, the goal was to create a playable game where the player or AI agent could apply thrust or torque to steer the rocket towards a horizontal landing pad, amidst vertically varied terrain representing mountains and valleys. The `PyGame` library was utilized to draw the level, player, and text to a window that can be resized by the user. To streamline the game code, key classes were created representing the `Rocket`, `Level`, and `Game` logic. 
