@@ -54,6 +54,8 @@ $$x = x_i + v_x dt$$
 $$y = y_i + v_y dt$$
 $$\theta = \theta_i + \alpha dt$$
 
+The integrator is a semi‑implicit Euler method: forces and accelerations are computed first, then velocity is updated using those accelerations. Positions are subsequently updated using the newly updated velocity. This provides better stability than explicit Euler, and more advanced methods such as Runge–Kutta were unnecessary for this type of game‑based physics simulation.
+
 These states are updated at every time step, and are used to calculate other attributes such as the outer boundary position of the rocket. A simple grid of $(x_{boundary},y_{boundary})$ points is defined for the outside of the rocket, and is translated and rotated as follows:
 
 $$\begin{bmatrix}
