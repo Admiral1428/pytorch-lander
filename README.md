@@ -22,6 +22,8 @@ PyTorch’s runtime libraries are extremely large, and packaging them into a sta
   * Install the project's dependencies from the root directory by running the following command: ``pip install -r requirements.txt``
   * You can then run the game or training program directly from the source code. 
 
+**Note:** The requirements file lists the CUDA 12.6 version of PyTorch (``torch==2.9.1+cu126``) so users with NVIDIA GPUs can train the model with hardware acceleration. If your GPU is incompatible with this CUDA version, you may install a different CUDA‑enabled build or use the CPU‑only version of PyTorch instead. The CPU build is smaller and works on any machine.
+
 ## Design and Modeling
 
 Similar to the arcade game *Lunar Lander (1979)*, the goal was to create a playable game where the player or AI agent could apply thrust or torque to steer the rocket towards a horizontal landing pad, amidst vertically varied terrain representing mountains and valleys. The `PyGame` library was utilized to draw the level, player, and text to a window that can be resized by the user. To streamline the game code, key classes were created representing the `Rocket`, `Level`, and `Game` logic. 
