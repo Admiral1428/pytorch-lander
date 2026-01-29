@@ -167,7 +167,7 @@ Another way to expedite training was to introduce a success buffer, which is pop
 A series of plots were created to help diagnose behaviors for tuning the shaping terms and hyperparameters, and a subset is shown here which illustrates high pad contact rates near episode 3800:
 
 ### **High pad contact rate at episode 3800:**
-<img width="3004" height="1176" alt="lander_model_phase_01_ 02_event_rates  - arrow" src="https://github.com/user-attachments/assets/b9561fd9-b907-4855-b76c-4508c5c77bd8" />
+<img width="3004" height="1176" alt="lander_model_phase_01_ 02_event_rates  - arrow" src="https://github.com/user-attachments/assets/39636e95-e1cb-43bd-8969-ea60b34f14b8" />
 
 ### **Vertical distance to pad is near zero at episode 3800:**
 <img width="3038" height="1176" alt="lander_model_phase_01_ 04_vert_dist  - arrow" src="https://github.com/user-attachments/assets/73621118-f31d-4560-bb31-0262e3f1929c" />
@@ -202,7 +202,7 @@ Compared to Phase 1, trajectory scatter is noticeably reduced, and the rocket 
 
 By approximately Episode 400, the model was consistently making contact with the pad under zero‑epsilon (fully greedy) evaluation.
 
-<img width="3004" height="1176" alt="lander_model_phase_02_ 02_event_rates  - arrow" src="https://github.com/user-attachments/assets/632ea389-d593-44cd-a8ba-8dc253143364" />
+<img width="3004" height="1176" alt="lander_model_phase_02_ 02_event_rates  - arrow" src="https://github.com/user-attachments/assets/8381dc34-65d6-4cca-8b95-0172cec9c227" />
 
 <img width="1306" height="1361" alt="training_trajectories_episode_400_rate_100" src="https://github.com/user-attachments/assets/aad502ec-8e87-4965-8df1-2c1a7d729260" />
 
@@ -226,7 +226,7 @@ A similar approach was used in Phase 3, with the rocket now starting from the 
 
 By approximately Episode 800, the model demonstrated consistently successful descent behavior from the full starting height. While angular correction near the pad was not fully as expected, this performance was considered an appropriate stopping point for the phase.
 
-<img width="3004" height="1176" alt="lander_model_phase_03_ 02_event_rates  - arrow" src="https://github.com/user-attachments/assets/dd159b96-a080-4b61-b415-dec4d4c675cc" />
+<img width="3004" height="1176" alt="lander_model_phase_03_ 02_event_rates  - arrow" src="https://github.com/user-attachments/assets/01defcb6-0165-4f75-bc79-20dc22b6852f" />
 
 <img width="1403" height="1361" alt="training_trajectories_episode_800_rate_100" src="https://github.com/user-attachments/assets/bef843f7-b093-48d7-842b-63720756bad0" />
 
