@@ -5,13 +5,13 @@ from trainer.reward import calc_shaping_rewards
 def init_plot_vars():
     shaping_log = {}
     step = 0
-    prev_state = [None, None, 0, 0, 90]
+    prev_state = [None, None, 0, 0, 90, 0]
     terminated = False
 
     return shaping_log, step, prev_state, terminated
 
 
-def get_plot_data(state_vector, player, prev_state, step, shaping_log):
+def get_plot_data(state_vector, player, prev_state, step, shaping_log, phase, action):
     # Get reward data for purposes of training diagnostics
     curr_y = state_vector[1]
     curr_dx = state_vector[8]
@@ -19,13 +19,14 @@ def get_plot_data(state_vector, player, prev_state, step, shaping_log):
     terrain_from_bottom = state_vector[10:]
     vel_x, vel_y = player.get_velocity()
     angle = player.get_angle()
+    action = player.get_action_state()
     # If first step, need to assign previous delta positions values
     if prev_state[0] == None and prev_state[1] == None:
         prev_state[0] = curr_dx
         prev_state[1] = curr_dy
     # Calculate minor shaping rewards
     shaping_rewards = calc_shaping_rewards(
-        "phase1",
+        phase,
         player,
         curr_y,
         curr_dx,
@@ -43,7 +44,7 @@ def get_plot_data(state_vector, player, prev_state, step, shaping_log):
         shaping_log["step"] = [step]
     else:
         shaping_log["step"].append(step)
-    prev_state = [curr_dx, curr_dy, vel_x, vel_y, angle]
+    prev_state = [curr_dx, curr_dy, vel_x, vel_y, angle, action]
 
     return shaping_log, step, prev_state
 

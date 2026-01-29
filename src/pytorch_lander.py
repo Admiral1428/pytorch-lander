@@ -12,7 +12,7 @@ from trainer.action import select_action
 
 # Initialize game and level
 game = Game()
-level = Level(game.images, 13, 0.4)
+level = Level(game.images, 13)
 player = Rocket(level.get_rocket_start_loc(), game.images, game.sounds)
 
 # Set device to GPU if available
@@ -23,7 +23,7 @@ action_dim_choice = 4
 model = LanderNet(
     state_dim=len(get_state(game, player, level)), action_dim=action_dim_choice
 ).to(device)
-model.load_state_dict(torch.load("lander_model_phase_01.pth", map_location=device))
+model.load_state_dict(torch.load("lander_model_phase_03.pth", map_location=device))
 
 # Set epsilon to zero (no longer exploring since no longer training)
 epsilon = 0
@@ -59,6 +59,7 @@ while game.flags.running:
         # Only process input when not in delay
         player, level = handle_events(game, player, level)
         state_vector = get_state(game, player, level)
+        action = player.get_action_state()
         if cfg.MODES[game.mode_index] == "AI" and ai_frame == 0:
             # Read the current environment state for the agent
             state = torch.tensor(state_vector, dtype=torch.float32, device=device)
@@ -73,7 +74,7 @@ while game.flags.running:
     elif game.flags.gameloop:
         if make_plot:
             shaping_log, step, prev_state = get_plot_data(
-                state_vector, player, prev_state, step, shaping_log
+                state_vector, player, prev_state, step, shaping_log, "phase3", action
             )
 
         player.update_state(delta_time_seconds)

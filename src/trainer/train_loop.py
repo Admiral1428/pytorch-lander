@@ -32,9 +32,18 @@ import matplotlib.pyplot as plt
 
 def train_loop(config):
 
-    # Initialize game and level
+    # Initialize game and player
     game = Game(-1)
-    level = Level(None, random.choice(config["level_seeds"]), config["starting_height"])
+
+    # Initialize level and player
+    if config["starting_height"] is None:
+        level = Level(None, random.choice(config["level_seeds"]))
+    else:
+        level = Level(
+            None,
+            random.choice(config["level_seeds"]),
+            config["starting_height"],
+        )
     player = Rocket(level.get_rocket_start_loc())
 
     # Simulation rate for training
@@ -60,11 +69,6 @@ def train_loop(config):
     if config["checkpoint_path"] is not None:
         state_dict = torch.load(config["checkpoint_path"], map_location=device)
 
-        # Remove output layer weights since inconsistent with new action_dim
-        if config["reward_phase"] == "phase2":
-            state_dict.pop("net.4.weight", None)
-            state_dict.pop("net.4.bias", None)
-
         # Load the rest
         model.load_state_dict(state_dict, strict=False)
 
@@ -81,7 +85,7 @@ def train_loop(config):
     gamma = config["gamma"]
 
     # Terminal reward amounts and save criteria
-    if config["reward_phase"] == "phase1":
+    if config["reward_phase"] in ("phase1", "phase2", "phase3"):
         landing_reward = 200
         escape_reward = -600
         flip_reward = -400
@@ -94,7 +98,7 @@ def train_loop(config):
     episode_reward = 0
 
     # Initialize previous state (velocity x, velocity y, angle)
-    prev_state = [None, None, 0, 0, 90]
+    prev_state = [None, None, 0, 0, 90, 0]
 
     # Initialize dict to store episode information, and list containing all episodes
     episode_info = init_episode_info()
@@ -172,7 +176,7 @@ def train_loop(config):
         episode_cumulative_shaping(episode_info, shaping_rewards)
 
         # Update previous state and set flag
-        prev_state = [curr_dx, curr_dy, vel_x, vel_y, angle]
+        prev_state = [curr_dx, curr_dy, vel_x, vel_y, angle, action]
         done = False
 
         # Check terminal events
@@ -290,9 +294,14 @@ def train_loop(config):
             episode_info = init_episode_info()
 
             # Get another random level
-            level = Level(
-                None, random.choice(config["level_seeds"]), config["starting_height"]
-            )
+            if config["starting_height"] is None:
+                level = Level(None, random.choice(config["level_seeds"]))
+            else:
+                level = Level(
+                    None,
+                    random.choice(config["level_seeds"]),
+                    config["starting_height"],
+                )
 
             # Evaulate policy with zero epsilon if episode number is at interval
             if episodes % config["eval_interval"] == 0 and episodes > 0:

@@ -345,6 +345,20 @@ class Rocket:
             self.flags.thrust = True
             self.flags.right_torque = True
 
+    def get_action_state(self):
+        if self.flags.thrust:
+            if self.flags.left_torque:
+                return 4
+            elif self.flags.right_torque:
+                return 5
+            return 1
+        elif self.flags.left_torque:
+            return 2
+        elif self.flags.right_torque:
+            return 3
+        else:
+            return 0
+
     # Determine how far angle is from upright orientation
     def angle_deviation_from_upright(self, angle=None):
         if angle is None:
