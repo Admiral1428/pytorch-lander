@@ -3,6 +3,7 @@
 
 <img width="3188" height="1794" alt="12-09-25" src="https://github.com/user-attachments/assets/88c34510-4f13-412f-a6a5-ebd71d431677" />
 
+### **Baseline Example: Rocket Under Human Control:**
 https://github.com/user-attachments/assets/6813e678-4339-40f4-8592-38676eb4cb30
 
 ## Key features:
@@ -181,15 +182,65 @@ Given this convergence, the model was saved into an external file `lander_model_
 
 https://github.com/user-attachments/assets/e188e5a0-bdc1-49fd-95ae-fa7f03c7dccd
 
+## Training Phase 2 - Intermediate Vertical Starting Location
+
+The next phase of training increased the rocket’s starting height while preserving the same objective: descend toward the landing pad both vertically and horizontally. Because Phase 1 produced a reasonably competent baseline policy, Phase 2 used a refined set of hyperparameters with reduced exploration:
+
+| Hyperparameter | Description |
+|----------------|-------------|
+| **Epsilon start:** `ε = 0.2` | Lower initial exploration compared to Phase 1. |
+| **Epsilon end:** `ε = 0.02` | Exploration decays to a smaller final value. |
+| **Epsilon decay:** `1800` episodes | Faster transition from exploration to exploitation. |
+| **Discount factor:** `γ = 0.99` | Unchanged. |
+| **Max episodes:** `2000` | Fewer episodes needed due to head‑start from Phase 1. |
+| **Replay buffer size:** `100,000` | Unchanged. |
+| **Update interval:** `4` steps | Unchanged. |
+| **Warmup steps:** `500` steps | Reduced warmup since the model is already partially trained. |
+| **Evaluation interval:** `200` episodes | Unchanged. |
+
+Compared to Phase 1, trajectory scatter is noticeably reduced, and the rocket reliably descends toward the pad. An additional shaping term encouraging upright attitude below a certain vertical threshold makes the rocket more inclined to self‑correct near the pad. Some rapid left/right torque oscillation remains, and addressing this behavior would require further investigation into the reward landscape.
+
+By approximately Episode 400, the model was consistently making contact with the pad under zero‑epsilon (fully greedy) evaluation.
+
+<img width="3004" height="1176" alt="lander_model_phase_02_ 02_event_rates  - arrow" src="https://github.com/user-attachments/assets/632ea389-d593-44cd-a8ba-8dc253143364" />
+
+<img width="1306" height="1361" alt="training_trajectories_episode_400_rate_100" src="https://github.com/user-attachments/assets/aad502ec-8e87-4965-8df1-2c1a7d729260" />
+
+https://github.com/user-attachments/assets/9dabc76b-0acb-4941-9038-7bbbcfcd5b2e
+
+## Training Phase 3 - Default Vertical Starting Location
+
+A similar approach was used in Phase 3, with the rocket now starting from the default, highest vertical position. Hyperparameters were further refined, using the Phase 2 model as the initialization point:
+
+| Hyperparameter | Description |
+|----------------|-------------|
+| **Epsilon start:** `ε = 0.1` | Reduced initial exploration relative to Phase 2. |
+| **Epsilon end:** `ε = 0.01` | Exploration decays to an even smaller final value. |
+| **Epsilon decay:** `1800` episodes | Unchanged. |
+| **Discount factor:** `γ = 0.99` | Unchanged. |
+| **Max episodes:** `2000` | Unchanged. |
+| **Replay buffer size:** `100,000` | Unchanged. |
+| **Update interval:** `4` steps | Unchanged. |
+| **Warmup steps:** `500` steps | Unchanged. |
+| **Evaluation interval:** `200` episodes | Unchanged. | 
+
+By approximately Episode 800, the model demonstrated consistently successful descent behavior from the full starting height. While angular correction near the pad was not fully as expected, this performance was considered an appropriate stopping point for the phase.
+
+<img width="3004" height="1176" alt="lander_model_phase_03_ 02_event_rates  - arrow" src="https://github.com/user-attachments/assets/dd159b96-a080-4b61-b415-dec4d4c675cc" />
+
+<img width="1403" height="1361" alt="training_trajectories_episode_800_rate_100" src="https://github.com/user-attachments/assets/bef843f7-b093-48d7-842b-63720756bad0" />
+
+https://github.com/user-attachments/assets/a56ca614-e3ad-4f3c-9e6c-fbb2abec8256
+
 ## Future Training Phases
 
-Future training will focus on achieving a fully successful landing, defined by the following criteria:
+Future training would aim to achieve a fully successful landing, defined by the following criteria:
 * Horizontal velocity less than safe threshold
 * Vertical velocity less than safe threshold
 * Landing angle within tolerance (nearly upright)
 * Entirety of rocket positioned on pad horizontally
 * Rocket is touching pad vertically within tolerance
 
-Achieving this will likely require an additional round of Phase 1 training with a higher initial starting altitude to give the agent more time to stabilize its descent from normal starting altitudes. Subsequently, new shaping terms can be introduced for the final landing phase—rewarding safe velocities, upright angles, and precise pad alignment. Each stage would initialize from the previous model checkpoint to accelerate convergence and preserve learned behaviors.
+Achieving this would likely require introducing new shaping terms tailored to the final landing phase—rewarding safe descent velocities, upright attitude, and precise pad alignment. Each stage would continue to initialize from the previous model checkpoint to accelerate convergence and preserve learned behaviors. Since the current model is trained on a single level seed, expanding to additional seeds would be necessary to ensure robustness across varied environments.
 
 Training so far has shown that the agent is extremely sensitive to hyperparameters, shaping magnitudes, and terminal reward structure. This sensitivity has been one of the most interesting aspects of the project: the agent frequently discovers locally optimal but undesirable behaviors, and careful reward design is required to guide it toward true success cases.
