@@ -4,14 +4,16 @@ import game.constants as cfg
 def calc_shaping_rewards(
     reward_phase, player, curr_y, curr_dx, curr_dy, prev_state, terrain_slice
 ):
-    prev_dx, prev_dy, prev_vx, prev_vy, prev_angle = prev_state
+    prev_dx, prev_dy, prev_vx, prev_vy, prev_angle, prev_action = prev_state
     vx, vy = player.get_velocity()
+    omega = abs(player.get_omega())
     angle_dev = player.angle_deviation_from_upright()
+    action = player.get_action_state()
 
     total_reward = 0
     reward = {}
 
-    # Phase 1: descend towards pad and move horizontally towards it
+    # Phase 1/2: descend towards pad and move horizontally towards it
     if reward_phase == "phase1":
         reward["r_angle"] = r_angle(angle_dev, scale=0.05)
         reward["r_vertical_position"] = r_vertical_position(curr_dy, scale=0.2)
@@ -20,6 +22,19 @@ def calc_shaping_rewards(
         reward["r_vertical_velocity"] = r_vertical_velocity(vy, scale=0.05)
         reward["r_time"] = r_time(scale=-0.05)
         reward["r_fuel"] = r_fuel(player, thrust_scale=1.0, torque_scale=1.5)
+    elif reward_phase in ("phase2", "phase3"):
+        reward["r_angle"] = r_angle(angle_dev, scale=0.02)
+        reward["r_vertical_position"] = r_vertical_position(curr_dy, scale=0.2)
+        reward["r_horizontal_position"] = r_horizontal_position(curr_dx, scale=0.2)
+        reward["r_terrain"] = r_terrain(terrain_slice, curr_dx, curr_y, scale=0.5)
+        reward["r_vertical_velocity"] = r_vertical_velocity(vy, scale=0.05)
+        reward["r_time"] = r_time(scale=-0.05)
+        reward["r_fuel"] = r_fuel(player, thrust_scale=1.0, torque_scale=1.5)
+        reward["r_upright_bonus"] = r_upright_bonus(
+            angle_dev, curr_dy, scale=0.1, threshold=0.2, max_angle=30
+        )
+        # reward["r_angular_velocity"] = r_angular_velocity(omega, scale=0.1)
+        # reward["r_torque_switch"] = r_torque_switch(action, prev_action, scale=0.3)
     else:
         raise ValueError(f"Unknown shaping mode: {reward_phase}")
 
@@ -101,4 +116,26 @@ def r_terrain(terrain_slice, curr_dx, curr_y, scale=0.005):
     if min_clearance < 0.3:
         return -scale * (0.3 - min_clearance)
 
+    return 0
+
+
+# Reward for being upright near the pad
+def r_upright_bonus(angle_dev, curr_dy, scale=0.2, threshold=0.2, max_angle=30):
+    if curr_dy > threshold:
+        return 0
+    # convert to normalized value
+    uprightness = max(0.0, 1.0 - angle_dev / max_angle)
+    return scale * uprightness
+
+
+def r_angular_velocity(omega, scale=0.05):
+    return -scale * omega
+
+
+# Penalize oscillation between left and right torque
+def r_torque_switch(action, prev_action, scale=0.1):
+    if action in (0, 1):
+        return 0
+    elif (action == 2 and prev_action == 3) or (action == 3 and prev_action == 2):
+        return -scale
     return 0

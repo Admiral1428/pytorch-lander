@@ -102,9 +102,15 @@ def evaluate_policy(
     eval_game = Game(-1)
     success_cases = 0
     for i in range(eval_episodes):
-        eval_level = Level(
-            None, random.choice(config["level_seeds"]), config["starting_height"]
-        )
+        if config["starting_height"] is None:
+            eval_level = Level(None, random.choice(config["level_seeds"]))
+        else:
+            eval_level = Level(
+                None,
+                random.choice(config["level_seeds"]),
+                config["starting_height"],
+            )
+
         eval_player = Rocket(eval_level.get_rocket_start_loc())
         done = False
         while not done:
