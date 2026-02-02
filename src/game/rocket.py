@@ -364,3 +364,27 @@ class Rocket:
         if angle is None:
             angle = self.angle
         return abs((angle - 90 + 180) % 360 - 180)
+
+    # Manually set horizontal position
+    def set_x_pos(self, x):
+        self.pos[0] = x
+
+    # Manually set velocity
+    def set_velocity(self, vel_x, vel_y):
+        self.velocity = [vel_x, vel_y]
+
+    # Manually set acceleration
+    def set_accel(self, accel_x, accel_y):
+        self.accel = [accel_x, accel_y]
+
+    # Manually set angle
+    def set_angle(self, angle):
+        self.angle = angle
+
+    # Manually set omega
+    def set_omega(self, omega):
+        self.omega = omega
+
+    # Manually set omega
+    def set_alpha(self, alpha):
+        self.alpha = alpha

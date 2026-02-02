@@ -6,7 +6,7 @@ from trainer.state import get_state
 from trainer.action import select_action
 from trainer.buffer import ReplayBuffer
 from trainer.model import LanderNet
-from trainer.reward import calc_shaping_rewards
+from trainer.reward import calc_shaping_rewards, smooth_terminal_reward
 from trainer.train import train_step
 from trainer.utils import (
     get_epsilon,
@@ -15,6 +15,7 @@ from trainer.utils import (
     export_checkpoint,
     get_success_buffer_rate,
     evaluate_policy,
+    modify_starting_state,
 )
 from trainer.episode_info import (
     init_episode_info,
@@ -45,6 +46,9 @@ def train_loop(config):
             config["starting_height"],
         )
     player = Rocket(level.get_rocket_start_loc())
+
+    # Set initial conditions of rocket if applicable
+    modify_starting_state(config, player, cfg.LEVEL_WIDTH)
 
     # Simulation rate for training
     delta_time_seconds = 1 / cfg.MODEL_HZ
@@ -84,13 +88,24 @@ def train_loop(config):
     epsilon_decay = config["epsilon_decay"]
     gamma = config["gamma"]
 
+    # Get phase as a variable
+    phase = config["reward_phase"]
+
     # Terminal reward amounts and save criteria
-    if config["reward_phase"] in ("phase1", "phase2", "phase3"):
+    if phase in ("phase1", "phase2", "phase3"):
+        partial_reward = 0
         landing_reward = 200
         escape_reward = -600
         flip_reward = -400
         crash_reward = -175
         pad_reward = 200
+    elif phase == "phase4":
+        partial_reward = 100
+        landing_reward = 600
+        escape_reward = -600
+        flip_reward = -500
+        crash_reward = -300
+        pad_reward = 0
 
     # Initialize number of steps, number of episodes, and episode reward
     steps = 0  # training frequency (every physics frame)
@@ -110,6 +125,7 @@ def train_loop(config):
     # Open log file and create deque of last 100 cases
     recent_episodes = deque(maxlen=100)
     rolling_pad = 0
+    rolling_land = 0
 
     # Create a persistent figure and axis once
     fig, ax = plt.subplots()
@@ -128,7 +144,10 @@ def train_loop(config):
         )
 
         # Refine rate of success buffer usage
-        buffer_pct = get_success_buffer_rate(rolling_pad)
+        if phase in ("phase1", "phase2", "phase3"):
+            buffer_pct = get_success_buffer_rate(rolling_pad)
+        elif phase == "phase4":
+            buffer_pct = get_success_buffer_rate(rolling_land)
 
         # Get current state
         state_vector = get_state(game, player, level)
@@ -163,7 +182,7 @@ def train_loop(config):
 
         # Calculate minor shaping rewards
         shaping_rewards = calc_shaping_rewards(
-            config["reward_phase"],
+            phase,
             player,
             curr_y,
             curr_dx,
@@ -192,6 +211,14 @@ def train_loop(config):
             if game.calc_horizontal_with_pad(level, player):
                 terminal_award = pad_reward
                 event_description = "pad contact"
+                # Partial awards for being closer to successful landing
+                vx_score = smooth_terminal_reward(vel_x, cfg.LANDING_VELOCITY)
+                vy_score = smooth_terminal_reward(vel_y, cfg.LANDING_VELOCITY)
+                ang_score = smooth_terminal_reward(
+                    player.angle_deviation_from_upright(), cfg.LANDING_MAX_ANGLE - 90
+                )
+                terminal_award += partial_reward * (vx_score + vy_score + ang_score)
+
             else:
                 terminal_award = crash_reward
                 event_description = "collision"
@@ -223,14 +250,25 @@ def train_loop(config):
 
         # Reset if episode ended
         if done:
+            # Default values
             traj_color = "red"
-            if event_description == "pad contact":
-                traj_color = "lightgreen"
-                for t in episode_transitions:
-                    success_buffer.add(*t)
-            else:
-                for t in episode_transitions:
-                    main_buffer.add(*t)
+            target_buffer = main_buffer
+
+            if phase in ("phase1", "phase2", "phase3"):
+                if event_description == "pad contact":
+                    traj_color = "lightgreen"
+                    target_buffer = success_buffer
+
+            elif phase == "phase4":
+                if event_description == "landing":
+                    traj_color = "green"
+                    target_buffer = success_buffer
+                elif event_description == "pad contact":
+                    traj_color = "lightgreen"
+
+            # Add transitions to appropriate buffer
+            for t in episode_transitions:
+                target_buffer.add(*t)
 
             # Reset transitions for next episode
             episode_transitions = []
@@ -286,12 +324,16 @@ def train_loop(config):
             # Save episode to list and determine rolling rate of success
             all_episodes.append(episode_info.copy())
             rolling_pad = all_episodes[-1]["rolling_avg_pad_contact_rate"]
+            rolling_land = all_episodes[-1]["rolling_avg_landing_rate"]
 
             # Reset and increment
             episode_reward = 0
             player = Rocket(level.get_rocket_start_loc())
             episodes += 1
             episode_info = init_episode_info()
+
+            # Set initial conditions of rocket if applicable
+            modify_starting_state(config, player, cfg.LEVEL_WIDTH)
 
             # Get another random level
             if config["starting_height"] is None:
@@ -313,6 +355,7 @@ def train_loop(config):
                     delta_time_seconds,
                     eval_episodes=50,
                     rate_threshold=0.25,
+                    level_width=cfg.LEVEL_WIDTH,
                 )
                 if passed_test:
                     # Export model and image

@@ -92,7 +92,7 @@ def plot_event_rate(df, path="", save_png=True):
         df["episode_number"],
         df["rolling_avg_flip_rate"],
         color="blue",
-        label="pad_flip_rate",
+        label="flip_rate",
         alpha=0.7,
     )
     plt.title("Rolling Average Event Rate per Episode")
