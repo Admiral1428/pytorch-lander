@@ -6,6 +6,9 @@
 ### **Baseline Example: Rocket Under Human Control:**
 https://github.com/user-attachments/assets/6813e678-4339-40f4-8592-38676eb4cb30
 
+### **Model Example: Rocket Under AI Control:**
+https://github.com/user-attachments/assets/05117495-637f-4b12-99cf-b3b7fc65a386
+
 ## Key features:
 - Procedural terrain generation with reproducible random seeds
 - Physics-based rocket model with 3 degrees of freedom (Z-rotation, X-Y translation)
@@ -232,15 +235,43 @@ By approximately Episode 800, the model demonstrated consistently successful d
 
 https://github.com/user-attachments/assets/a56ca614-e3ad-4f3c-9e6c-fbb2abec8256
 
-## Future Training Phases
+## Training Phase 4 - Vertical Landings
 
-Future training would aim to achieve a fully successful landing, defined by the following criteria:
+Phase 4 training focused on achieving successful landings, defined by the following criteria:
 * Horizontal velocity less than safe threshold
 * Vertical velocity less than safe threshold
 * Landing angle within tolerance (nearly upright)
 * Entirety of rocket positioned on pad horizontally
 * Rocket is touching pad vertically within tolerance
 
-Achieving this would likely require introducing new shaping terms tailored to the final landing phase—rewarding safe descent velocities, upright attitude, and precise pad alignment. Each stage would continue to initialize from the previous model checkpoint to accelerate convergence and preserve learned behaviors. Since the current model is trained on a single level seed, expanding to additional seeds would be necessary to ensure robustness across varied environments.
+Phase 4 began from a starting height corresponding to roughly 20% of the screen height above the pad (`curr_dy = 0.2`). The goal was to merge the stable descent behavior learned in Phase 3 with a dedicated landing phase that would take over once the rocket descended sufficiently. To support this, initial conditions such as velocity, position, and angle were randomized during Phase 4 training.
 
-Training so far has shown that the agent is extremely sensitive to hyperparameters, shaping magnitudes, and terminal reward structure. This sensitivity has been one of the most interesting aspects of the project: the agent frequently discovers locally optimal but undesirable behaviors, and careful reward design is required to guide it toward true success cases.
+Reward shaping was modified to place stronger emphasis on vertical velocity, horizontal velocity, and rocket angle, with these shaping terms increasing in strength near the landing pad. For unsuccessful landings that still made pad contact, a scaled terminal reward was applied based on how close the rocket came to meeting the landing criteria.
+
+Hyperparameters were adjusted to encourage sufficient exploration of landing behaviors, and zero‑epsilon evaluation tests were performed more frequently.
+
+| Hyperparameter | Description |
+|----------------|-------------|
+| **Epsilon start:** `ε = 0.8` | Increased initial exploration relative to Phase 3. |
+| **Epsilon end:** `ε = 0.1` | Higher final exploration level. |
+| **Epsilon decay:** `4500` episodes | Longer decay schedule. |
+| **Discount factor:** `γ = 0.99` | Unchanged. |
+| **Max episodes:** `5000` | Increased episode cap. |
+| **Replay buffer size:** `100,000` | Unchanged. |
+| **Update interval:** `4` steps | Unchanged. |
+| **Warmup steps:** `500` steps | Unchanged. |
+| **Evaluation interval:** `25` episodes | More frequent evaluation due to the rarity of landing events. | 
+
+The best overall behavior occurred around Episode 2325 of 5000, with a landing rate of approximately 42% during evaluation and roughly 10% during training. Landing rates were even higher near Episode 1550, but the resulting behavior in the final simulation was less consistent.
+
+<img width="1386" height="1361" alt="training_trajectories_episode_2325_rate_42" src="https://github.com/user-attachments/assets/1fb59c8c-b4bf-496a-a055-dd3477a9d043" />
+
+<img width="3004" height="1176" alt="lander_model_phase_04_ 02_event_rates  - arrow" src="https://github.com/user-attachments/assets/4976ae83-918d-431a-bcbd-f873c3831f8f" />
+
+https://github.com/user-attachments/assets/05117495-637f-4b12-99cf-b3b7fc65a386
+
+## Future Training Phases
+
+Since the current model is trained on a single level seed, future training would expand to additional seeds to ensure robustness across varied environments.
+
+Training has shown that the agent is extremely sensitive to hyperparameters, shaping magnitudes, and terminal reward structure. This sensitivity has been one of the most interesting aspects of the project: the agent frequently discovers locally optimal but undesirable behaviors, and careful reward design is required to guide it toward true success cases.
