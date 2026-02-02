@@ -20,10 +20,14 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # Initialize and load the trained model for AI control
 action_dim_choice = 4
-model = LanderNet(
+model_high = LanderNet(
     state_dim=len(get_state(game, player, level)), action_dim=action_dim_choice
 ).to(device)
-model.load_state_dict(torch.load("lander_model_phase_03.pth", map_location=device))
+model_high.load_state_dict(torch.load("lander_model_phase_03.pth", map_location=device))
+model_low = LanderNet(
+    state_dim=len(get_state(game, player, level)), action_dim=action_dim_choice
+).to(device)
+model_low.load_state_dict(torch.load("lander_model_phase_04.pth", map_location=device))
 
 # Set epsilon to zero (no longer exploring since no longer training)
 epsilon = 0
@@ -59,12 +63,20 @@ while game.flags.running:
         # Only process input when not in delay
         player, level = handle_events(game, player, level)
         state_vector = get_state(game, player, level)
+
         action = player.get_action_state()
         if cfg.MODES[game.mode_index] == "AI" and ai_frame == 0:
             # Read the current environment state for the agent
             state = torch.tensor(state_vector, dtype=torch.float32, device=device)
             # Use the model to choose an action given the state
-            action, _, _, _ = select_action(model, state, action_dim_choice, epsilon)
+            if state[9] > 0.2:
+                action, _, _, _ = select_action(
+                    model_high, state, action_dim_choice, epsilon
+                )
+            else:
+                action, _, _, _ = select_action(
+                    model_low, state, action_dim_choice, epsilon
+                )
             # Apply that action to the rocket
             player.apply_ai_action(action)
 
@@ -74,7 +86,7 @@ while game.flags.running:
     elif game.flags.gameloop:
         if make_plot:
             shaping_log, step, prev_state = get_plot_data(
-                state_vector, player, prev_state, step, shaping_log, "phase3", action
+                state_vector, player, prev_state, step, shaping_log, "phase4", action
             )
 
         player.update_state(delta_time_seconds)

@@ -33,8 +33,12 @@ def calc_shaping_rewards(
         reward["r_upright_bonus"] = r_upright_bonus(
             angle_dev, curr_dy, scale=0.1, threshold=0.2, max_angle=30
         )
-        # reward["r_angular_velocity"] = r_angular_velocity(omega, scale=0.1)
-        # reward["r_torque_switch"] = r_torque_switch(action, prev_action, scale=0.3)
+    elif reward_phase == "phase4":
+        reward["r_landing_vertical"] = r_landing_vertical(
+            vy, curr_dy, minfac=0.3, maxfac=0.8, scale=5.0
+        )
+        reward["r_landing_horizontal"] = r_landing_horizontal(vx, curr_dy)
+        reward["r_landing_angle"] = r_landing_angle(angle_dev, curr_dy)
     else:
         raise ValueError(f"Unknown shaping mode: {reward_phase}")
 
@@ -91,13 +95,6 @@ def r_vertical_velocity(vy, scale=0.005, v_safe=cfg.LANDING_VELOCITY):
     return reward
 
 
-# Reward horizontal velocity at or below safe landing velocity
-def r_horizontal_landing_velocity(vx, scale=0.5):
-    if abs(vx) < cfg.LANDING_VELOCITY:
-        return scale * ((abs(vx) - cfg.LANDING_VELOCITY) / cfg.LANDING_VELOCITY)
-    return 0
-
-
 # Smooth angle penalty
 def r_angle(angle_dev, scale=0.1):
     return -scale * angle_dev
@@ -128,14 +125,34 @@ def r_upright_bonus(angle_dev, curr_dy, scale=0.2, threshold=0.2, max_angle=30):
     return scale * uprightness
 
 
-def r_angular_velocity(omega, scale=0.05):
-    return -scale * omega
+def r_landing_vertical(vy, curr_dy, minfac=0.3, maxfac=0.8, scale=5.0):
+    w = weight(curr_dy, max_dy=0.20)
+    # smoothly increases as dy → 0
+    factor = minfac + w * (maxfac - minfac)
+    return factor * r_vertical_velocity(vy, scale)
 
 
-# Penalize oscillation between left and right torque
-def r_torque_switch(action, prev_action, scale=0.1):
-    if action in (0, 1):
-        return 0
-    elif (action == 2 and prev_action == 3) or (action == 3 and prev_action == 2):
-        return -scale
-    return 0
+def r_landing_horizontal(vx, curr_dy, minfac=0.3, maxfac=0.8):
+    w = weight(curr_dy, max_dy=0.20)
+    # smoothly increases as dy → 0
+    scale = minfac + w * (maxfac - minfac)
+    return -scale * abs(vx)
+
+
+def r_landing_angle(angle_dev, curr_dy, minfac=0.3, maxfac=0.8):
+    w = weight(curr_dy, max_dy=0.20)
+    # smoothly increases as dy → 0
+    scale = minfac + w * (maxfac - minfac)
+    return -scale * angle_dev
+
+
+def weight(curr_dy, max_dy=0.20):
+    # 1 at dy=0, 0 at dy=max_dy
+    w = 1.0 - min(curr_dy / max_dy, 1.0)
+    return max(w, 0.0)
+
+
+def smooth_terminal_reward(v, limit):
+    # 1 when |v| = 0, 0 when |v| >= limit
+    x = abs(v) / limit
+    return max(0.0, 1.0 - x)

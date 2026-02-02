@@ -6,6 +6,7 @@ from trainer.action import select_action
 from game.rocket import Rocket
 from game.level import Level
 from game.game import Game
+from game import constants as cfg
 
 
 def get_epsilon(
@@ -98,6 +99,7 @@ def evaluate_policy(
     delta_time_seconds,
     eval_episodes=50,
     rate_threshold=0.2,
+    level_width=cfg.LEVEL_WIDTH,
 ):
     eval_game = Game(-1)
     success_cases = 0
@@ -112,6 +114,10 @@ def evaluate_policy(
             )
 
         eval_player = Rocket(eval_level.get_rocket_start_loc())
+
+        # Set initial conditions of rocket if applicable
+        modify_starting_state(config, eval_player, level_width)
+
         done = False
         while not done:
             state_vector = get_state(eval_game, eval_player, eval_level)
@@ -123,7 +129,9 @@ def evaluate_policy(
                 success_cases += 1
                 done = True
             elif eval_game.calc_collision(eval_level, eval_player):
-                if eval_game.calc_horizontal_with_pad(eval_level, eval_player):
+                if eval_game.calc_horizontal_with_pad(
+                    eval_level, eval_player
+                ) and config["reward_phase"] in ("phase1", "phase2", "phase3"):
                     success_cases += 1
                 done = True
             elif (
@@ -138,3 +146,37 @@ def evaluate_policy(
     if success_rate > rate_threshold:
         return [True, success_rate]
     return [False, success_rate]
+
+
+def modify_starting_state(config, player, level_width):
+    if "starting_horz" in config.keys():
+        [x_min, x_max] = config["starting_horz"]
+        start_x = random.uniform(x_min * level_width, x_max * level_width)
+        player.set_x_pos(start_x)
+
+    if "starting_angle_omega_alpha" in config.keys():
+        [[angle_min, angle_max], [omega_min, omega_max], [alpha_min, alpha_max]] = (
+            config["starting_angle_omega_alpha"]
+        )
+        start_angle = random.uniform(angle_min, angle_max)
+        start_omega = random.uniform(omega_min, omega_max)
+        start_alpha = random.uniform(alpha_min, alpha_max)
+        player.set_angle(start_angle)
+        player.set_omega(start_omega)
+        player.set_alpha(start_alpha)
+
+    if "starting_velocity_x_y" in config.keys():
+        [[vel_x_min, vel_x_max], [vel_y_min, vel_y_max]] = config[
+            "starting_velocity_x_y"
+        ]
+        start_vel_x = random.uniform(vel_x_min, vel_x_max)
+        start_vel_y = random.uniform(vel_y_min, vel_y_max)
+        player.set_velocity(start_vel_x, start_vel_y)
+
+    if "starting_accel_x_y" in config.keys():
+        [[accel_x_min, accel_x_max], [accel_y_min, accel_y_max]] = config[
+            "starting_accel_x_y"
+        ]
+        start_accel_x = random.uniform(accel_x_min, accel_x_max)
+        start_accel_y = random.uniform(accel_y_min, accel_y_max)
+        player.set_accel(start_accel_x, start_accel_y)
