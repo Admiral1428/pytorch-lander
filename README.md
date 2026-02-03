@@ -26,7 +26,7 @@ PyTorch’s runtime libraries are extremely large, and packaging them into a sta
   * Install the project's dependencies from the root directory by running the following command: ``pip install -r requirements.txt``
   * You can then run the game or training program directly from the source code. 
 
-**Note:** The requirements file lists the CUDA 12.6 version of PyTorch (``torch==2.9.1+cu126``) so users with NVIDIA GPUs can train the model with hardware acceleration. If your GPU is incompatible with this CUDA version, you may install a different CUDA‑enabled build or use the CPU‑only version of PyTorch instead. The CPU build is smaller and works on any machine.
+**Note:** The requirements file lists the standard PyTorch package without a CUDA‑specific suffix (``torch==2.9.1``). This allows users to install whichever PyTorch build matches their system — CPU‑only or a CUDA‑enabled version. During development, this project was trained using PyTorch 2.9.1 with CUDA 12.6 on an NVIDIA GPU (``torch==2.9.1+cu126``).
 
 ## Design and Modeling
 
@@ -262,7 +262,7 @@ Hyperparameters were adjusted to encourage sufficient exploration of landing beh
 | **Warmup steps:** `500` steps | Unchanged. |
 | **Evaluation interval:** `25` episodes | More frequent evaluation due to the rarity of landing events. | 
 
-The best overall behavior occurred around Episode 2325 of 5000, with a landing rate of approximately 42% during evaluation and roughly 10% during training. Landing rates were even higher near Episode 1550, but the resulting behavior in the final simulation was less consistent.
+The best overall behavior occurred around Episode 2325 of 5000, with a landing rate of approximately 42% during evaluation and roughly 10% during training. Landing rates were even higher near Episode 1550, but the resulting behavior in the final simulation was less consistent. Note that successful landing trajectories are colored dark green, while pad contact cases are the light green color from previous trajectory plots.
 
 <img width="1386" height="1361" alt="training_trajectories_episode_2325_rate_42" src="https://github.com/user-attachments/assets/1fb59c8c-b4bf-496a-a055-dd3477a9d043" />
 
@@ -270,8 +270,14 @@ The best overall behavior occurred around Episode 2325 of 5000, with a landing
 
 https://github.com/user-attachments/assets/05117495-637f-4b12-99cf-b3b7fc65a386
 
-## Future Training Phases
+## Conclusions and Future Work
 
-Since the current model is trained on a single level seed, future training would expand to additional seeds to ensure robustness across varied environments.
+This project highlighted how sensitive reinforcement learning can be to hyperparameters, reward shaping, and curriculum structure, even in a relatively simple 3‑DoF environment. The agent frequently discovered locally optimal but undesirable behaviors, and guiding it toward true landing success required careful iteration and fine-tuning.
 
-Training has shown that the agent is extremely sensitive to hyperparameters, shaping magnitudes, and terminal reward structure. This sensitivity has been one of the most interesting aspects of the project: the agent frequently discovers locally optimal but undesirable behaviors, and careful reward design is required to guide it toward true success cases.
+The model could be further improved with several different approaches:
+* **Training across multiple terrain seeds** to improve robustness and generalization.
+* **Incorporating human‑guided demonstrations** on difficult levels to provide the agent with examples of safe descent and landing strategies.
+* **Blending RL with traditional control models** for more stable behavior.
+* **Automating curriculum progression** based on performance thresholds to reduce manual tuning.
+
+These modifications would push the project closer to a fully generalizable lander agent and provide deeper insight into the challenges of real‑world RL system design.
