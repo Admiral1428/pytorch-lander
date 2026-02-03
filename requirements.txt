@@ -1,4 +1,4 @@
 matplotlib==3.10.8
 pandas==3.0.0
 pygame==2.6.1
-torch==2.9.1+cu126
+torch==2.9.1
